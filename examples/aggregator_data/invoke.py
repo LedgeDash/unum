@@ -1,5 +1,5 @@
 import sys
-import handler
+import handle
 
 def get_data(request):
     '''`request` here is really just any object that contains the JSON doc which
@@ -15,8 +15,9 @@ def get_data(request):
 
 def main(request):
     data = get_data(request)
-    ret = handler.handle(data)
+    ret = handle.handle(data)
 
+    print(ret)
     # TODO: simple return ret now. Might need to automatically store persistently
     return ret
 
