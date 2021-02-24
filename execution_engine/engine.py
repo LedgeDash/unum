@@ -212,30 +212,34 @@ def get_result(ir):
 			ret.append(n.result)
 	return ret
 
-for line in sys.stdin:
-	req = json.loads(line)
-	ir_filename = req['app']+'.unum'
-	input_data = json.dumps(req['data'])
+def main():
+	for line in sys.stdin:
+		req = json.loads(line)
+		ir_filename = req['app']+'.unum'
+		input_data = json.dumps(req['data'])
 
-	# IR is just a list of Node objects
-	with open(ir_filename, 'r') as f:
-		ir_raw = json.loads(f.read())
-		ir = []
-		for k in ir_raw:
-			if ir_raw[k]['type'] == 'function':
-				n = FunctionNode(k, ir_raw[k])
-			elif ir_raw[k]['type'] == 'operator':
-				n = OperatorNode(k, ir_raw[k])
-			elif ir_raw[k]['type'] == 'input':
-				n = InputNode(k, ir_raw[k])
-			else:
-				n = BaseNode(k, ir_raw[k])
-			ir.append(n)
+		# IR is just a list of Node objects
+		with open(ir_filename, 'r') as f:
+			ir_raw = json.loads(f.read())
+			ir = []
+			for k in ir_raw:
+				if ir_raw[k]['type'] == 'function':
+					n = FunctionNode(k, ir_raw[k])
+				elif ir_raw[k]['type'] == 'operator':
+					n = OperatorNode(k, ir_raw[k])
+				elif ir_raw[k]['type'] == 'input':
+					n = InputNode(k, ir_raw[k])
+				else:
+					n = BaseNode(k, ir_raw[k])
+				ir.append(n)
 
-	build_dependency(ir)
-	mark_leaf_nodes(ir)
+		build_dependency(ir)
+		mark_leaf_nodes(ir)
 
-	execute_app(ir, input_data)
+		execute_app(ir, input_data)
 
-	ret = get_result(ir)
-	print(ret)
+		ret = get_result(ir)
+		print(ret)
+
+if __name__ == "__main__":
+	main()
