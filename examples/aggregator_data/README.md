@@ -33,3 +33,5 @@ Both `invoke.py` and `handler.py` run inside the same Python interpreter instanc
 
 *A key takeaway is that the the function code expects a JSON document with a
 particular format described above.*
+
+requires Python3.7+.
