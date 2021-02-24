@@ -218,7 +218,7 @@ def main():
 		ir_filename = req['app']+'.unum'
 		input_data = json.dumps(req['data'])
 
-		# IR is just a list of Node objects
+		# Current limitation: IR is just a list of Node objects
 		with open(ir_filename, 'r') as f:
 			ir_raw = json.loads(f.read())
 			ir = []
