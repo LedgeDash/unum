@@ -9,6 +9,17 @@ system down.
 
 # unum Application
 
+Assume that the application's input is the raw data JSON document, which is
+the case when the application is invoked via HTTP requests. This is the
+cleanest form and don't need to deal with parsing event JSON from different
+datastores and downloading data.
+
+Challenges from `http_raw_data_handle.py`:
+
+1. Need to know `requests.get(actuator_url, data = action)` has side effects
+   so that the final IR is not empty.
+2. 
+
 
 
 # Alternative Approaches

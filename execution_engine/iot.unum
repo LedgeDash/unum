@@ -1,0 +1,25 @@
+{
+	"event": {
+		"type":"input"
+	},
+	"op1": {
+		"type": "operator",
+		"code":"import json\nreturn json.dumps(event)",
+		"args": ["event"]
+	},
+	"aggregator_raw_data_no_se": {
+		"type": "function",
+		"location": "../examples/aggregator_raw_data_no_se/",
+		"args": ["op1"]
+	},
+	"action": {
+		"type": "function",
+		"location": "../examples/hvac_controller_raw_data_no_se/",
+		"args": ["aggregator_raw_data_no_se"]
+	},
+	"op2": {
+		"type": "operator",
+		"code":"import requests\nactuator_url='https://my-actuator.iot'\ndef adjust_actuator(action):\n\trequests.get(actuator_url, data = action)\nreturn adjust_actuator(action)",
+		"args": ["action"]
+	}
+}
