@@ -4,7 +4,7 @@
 	},
 	"op1": {
 		"type": "operator",
-		"code":"import json\nreturn json.dumps(event)",
+		"code":"import json\nunum_ret = json.dumps(event)",
 		"args": ["event"]
 	},
 	"aggregator_raw_data_no_se": {
@@ -19,7 +19,7 @@
 	},
 	"op2": {
 		"type": "operator",
-		"code":"import requests\nactuator_url='https://my-actuator.iot'\ndef adjust_actuator(action):\n\trequests.get(actuator_url, data = action)\nreturn adjust_actuator(action)",
+		"code":"import requests\nactuator_url='https://my-actuator.iot'\ndef adjust_actuator(action):\n\treturn actuator_url\nunum_ret = adjust_actuator(action)",
 		"args": ["action"]
 	}
 }

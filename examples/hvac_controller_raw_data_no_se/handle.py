@@ -10,10 +10,10 @@ THRESHOLD = 1
 def handle(event):
 	average = event['average_power_consumption']
 
-	command = False
+	command = 0
 
 	if average > THRESHOLD:
-		command = True
+		command = 1
 
 	return {
 		"timestamp": datetime.now().isoformat(timespec='milliseconds'),

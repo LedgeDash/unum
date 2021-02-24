@@ -15,6 +15,7 @@
 
 import sys, json
 import os.path
+from subprocess import Popen, PIPE, STDOUT
 
 
 class BaseNode(object):
@@ -27,6 +28,7 @@ class BaseNode(object):
 
 		self.dep = []
 		self.complete = False
+		self.leaf = False
 
 	def __str__(self):
 		return "name: " + self.name + "\n" + 'type: ' + self.type + '\n' + "depends on: " + str(self.dep)+ '\n'+ 'ready: ' + str(self.ready) + '\n'+ 'complete: ' + str(self.complete) + '\n'
@@ -51,7 +53,7 @@ class BaseNode(object):
 		return True
 
 
-class  InputNode(BaseNode):
+class InputNode(BaseNode):
 	"""docstring for FunctionNode"""
 	def __init__(self, name, arg):
 		super().__init__(name,arg)
@@ -81,7 +83,30 @@ class FunctionNode(BaseNode):
 		return self.name + ', ' + str(self.__class__)
 
 	def run(self):
+		'''Current limitation: only a single input
+		'''
+		input_data = [d.result for d in self.dep][0]
+		prog = self.location+'invoke.py'
 
+		# input_data = json.loads(input_data)
+		# payload = {}
+		# payload['data'] = input_data
+		# payload = json.dumps(payload)
+
+		with Popen(['python3', prog], stdout = PIPE, stdin=PIPE, stderr=PIPE) as proc:
+			try:
+			    outs, errs = proc.communicate(input=bytes(input_data,encoding='utf-8'),timeout=15)
+			except TimeoutExpired:
+			    proc.kill()
+			    outs, errs = proc.communicate()
+
+		ret = outs.decode('utf-8').replace("'", '"') #subprocess-specific: subprocess returns bytes
+		self.result = ret
+		# print('FaaS function name: ' + self.name)
+		# print('Result: '+ self.result)
+		# print('Result type: ' + str(type(self.result)))
+		# print('Errors: ' + str(errs))
+		# print('\n')
 		super().complete()
 
 
@@ -96,6 +121,29 @@ class OperatorNode(BaseNode):
 		return self.name + ', ' + str(self.__class__)
 
 	def run(self):
+
+		states = {}
+		states['code'] = self.code
+		for var_name, var_value in zip(self.args, self.dep):
+			states[var_name] = var_value.result
+
+		states_json = json.dumps(states)
+
+		with Popen(['python3', 'operator.py'], stdout=PIPE, stdin=PIPE, stderr=PIPE) as proc:
+			try:
+			    outs, errs = proc.communicate(input=bytes(states_json,encoding='utf-8'),timeout=15)
+			except TimeoutExpired:
+			    proc.kill()
+			    outs, errs = proc.communicate()
+
+		# ret = subprocess.run(['python3', 'operator.py'], capture_output=True)
+		ret = outs.decode('utf-8').replace("'", '"') #subprocess-specific: subprocess returns bytes
+		self.result = ret
+		# print('Operator name: ' + self.name)
+		# print('Result: '+ self.result)
+		# print('Result type: ' + str(type(self.result)))
+		# print('Errors: ' + str(errs))
+		# print('\n')
 		super().complete()
 
 def find_node_by_name(ir, name):
@@ -146,6 +194,23 @@ def execute_app(ir, input_data):
 				n.run() # TODO: can use a ready queue to parallelize
 		update_readiness(ir)
 
+def check_leaf(node, ir):
+	for n in ir:
+		if node in n.dep:
+			return False
+	return True
+
+def mark_leaf_nodes(ir):
+	for n in ir:
+		if check_leaf(n, ir):
+			n.leaf = True
+
+def get_result(ir):
+	ret = []
+	for n in ir:
+		if n.leaf:
+			ret.append(n.result)
+	return ret
 
 for line in sys.stdin:
 	req = json.loads(line)
@@ -168,11 +233,12 @@ for line in sys.stdin:
 			ir.append(n)
 
 	build_dependency(ir)
-
-	for d in ir:
-		print(d)
+	mark_leaf_nodes(ir)
 
 	execute_app(ir, input_data)
 
-	for d in ir:
-		print(d)
+	ret = get_result(ir)
+	print(ret)
+
+	# for d in ir:
+	# 	print(d)

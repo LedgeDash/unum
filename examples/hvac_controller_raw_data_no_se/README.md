@@ -13,3 +13,9 @@ actuator. The output looks like
 
 Optionally, we can write `hvac_controller` such that it causes side effects by
 calling a REST API of an actuator.
+
+Run it with
+
+```bash
+cat aggregator_output.json | python3 hvac_controller_raw_data_no_se/invoke.py
+```

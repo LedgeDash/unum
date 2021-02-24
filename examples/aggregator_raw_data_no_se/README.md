@@ -14,10 +14,10 @@ object of a single key-value pair, where the key is a string of ISO 8601
 formatted timestamp and the value is a JSON number.
 
 The `invoke.py` emulates a FaaS runtime by reading the "payload" data (i.e.,
-the JSON document described above) from a file and then calls the handle
-function with the data. This is similar to an HTTP FaaS runtime where the
-runtime receives HTTP requests, unpack the request to get the body and calls
-the handle function with the data.
+the JSON document described above) from stdin and then calls the handle
+function with the data. A real system might use an HTTP FaaS runtime where the
+runtime receives HTTP requests, unpack the request to get the body and calls the
+handle function with the data.
 
 In an actual deployment, both `invoke.py` and `handler.py` resides in the same
 container instance.
@@ -25,7 +25,7 @@ container instance.
 To test locally, invoke the function with:
 
 ```bash
-python3 invoke.py ../power_consumption_data.json
+cat power_consumption_data.json | python3 aggregator_raw_data_no_se/invoke.py
 ```
 
 Both `invoke.py` and `handler.py` run inside the same Python interpreter instance.

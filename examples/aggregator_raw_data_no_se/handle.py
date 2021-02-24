@@ -32,7 +32,7 @@ def to_datetime(elem):
 	return (time, elem[time_str])
 
 def handle(event):
-    series = event['data']
+    series = event
     num_elem = len(series)
 
     series = [to_datetime(elem) for elem in series]
