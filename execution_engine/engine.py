@@ -239,6 +239,3 @@ for line in sys.stdin:
 
 	ret = get_result(ir)
 	print(ret)
-
-	# for d in ir:
-	# 	print(d)
