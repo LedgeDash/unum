@@ -1,0 +1,22 @@
+{
+    "Records": [
+        {
+            "EventSource": "aws:sns",
+            "EventVersion": "1.0",
+            "EventSubscriptionArn": "arn:aws:sns:us-west-1:908344970015:iot-pipeline-intermediary-topic:32c6eba8-8d21-4cd2-bb6a-8182b06e2b9e",
+            "Sns": {
+                "Type": "Notification",
+                "MessageId": "a2e55d25-fea1-5f23-bf84-05cdf5c7a87f",
+                "TopicArn": "arn:aws:sns:us-west-1:908344970015:iot-pipeline-intermediary-topic",
+                "Subject": "Test",
+                "Message": "{\"starting_tsp\": \"2021-02-20T08:30:00\", \"ending_tsp\": \"2021-02-20T11:30:00\", \"total_time\": 240.0, \"total_power_consumption\": 366.2, \"average_power_consumption\": 1.5258333333333334}",
+                "Timestamp": "2021-04-07T19:33:58.012Z",
+                "SignatureVersion": "1",
+                "Signature": "SMsZn0sZ2wU8l0fRv+7+X2O/dDNV+VRFdt5LWOUUTp5xkGLr0oQXFF0wcyuG6h3G/WKyfxDUgIvd4qXEiis8z599RrKUke+t3SmmcD7S9++xZDPggwp4QYmNe4OL/DFjiFc3vL8ylzLYqQStC3BdHUq/2DVOUtovG4DGdOAXxPYl/nmwXsnZCnY+06jMNmP+zwm0hZ/ks8BAWeACOQqs+5P6eBQwFq2vlZsTSfZ4swTBYmRpu9FlFokKCeyk8MUcNuZgCxvm681MD9VxNMxCke2+CPlKD3FWJu3hIAEIVBc6Dr5BYXDxWutEUAjE+T3Y5NrPG0DSIizZ2GI4yfqsuw==",
+                "SigningCertUrl": "https://sns.us-west-1.amazonaws.com/SimpleNotificationService-010a507c1833636cd94bdb98bd93083a.pem",
+                "UnsubscribeUrl": "https://sns.us-west-1.amazonaws.com/?Action=Unsubscribe&SubscriptionArn=arn:aws:sns:us-west-1:908344970015:iot-pipeline-intermediary-topic:32c6eba8-8d21-4cd2-bb6a-8182b06e2b9e",
+                "MessageAttributes": {}
+            }
+        }
+    ]
+}

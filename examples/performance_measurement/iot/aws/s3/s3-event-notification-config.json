@@ -1,0 +1,9 @@
+{
+  "LambdaFunctionConfigurations": [
+    {
+      "Id": "hvac_controller-invoke",
+      "LambdaFunctionArn": "arn:aws:lambda:us-west-1:908344970015:function:hvac_controller-s3",
+      "Events": ["s3:ObjectCreated:*"]
+    }
+  ]
+}
