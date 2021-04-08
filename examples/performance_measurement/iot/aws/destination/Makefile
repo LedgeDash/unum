@@ -1,5 +1,6 @@
 aggregator-lambda = aggregator-destination
 hvac_controller-lambda = hvac_controller-destination
+aggregator_destination_config_file = aggregator_destination_config.json
 role = arn:aws:iam::908344970015:role/lambda-ex
 
 aggregator.zip: aggregator.py
@@ -30,7 +31,7 @@ update: aggregator.py hvac_controller.py
 up: build update
 
 generate-destination:
-	echo "{\"OnSuccess\": {\"Destination\": \"`aws lambda get-function --function-name hvac_controller-destination | grep FunctionArn | cut -d '"' -f 4`\"} }" > aggregator_destination_config.json
+	echo "{\"OnSuccess\": {\"Destination\": \"`aws lambda get-function --function-name $(hvac_controller-lambda) | grep FunctionArn | cut -d '"' -f 4`\"} }" > $(aggregator_destination_config_file)
 
 #set-destination: generate-destination
 #	aws lambda put-function-event-invoke-config --function-name aggregator-destination --destination-config fileb://aggregator_destination_config.json
