@@ -1,0 +1,35 @@
+{
+    "version": "1.0",
+    "timestamp": "2021-04-07T22:07:07.828Z",
+    "requestContext": {
+        "requestId": "3679ea70-f6f1-4fa7-8b13-f4cd6ee22b37",
+        "functionArn": "arn:aws:lambda:us-west-1:908344970015:function:aggregator-destination:$LATEST",
+        "condition": "Success",
+        "approximateInvokeCount": 1
+    },
+    "requestPayload": [
+        {
+            "2021-02-20T08:30:00.000": 120
+        },
+        {
+            "2021-02-20T09:30:00.000": 25
+        },
+        {
+            "2021-02-20T10:30:00.000": 211.2
+        },
+        {
+            "2021-02-20T11:30:00.000": 10
+        }
+    ],
+    "responseContext": {
+        "statusCode": 200,
+        "executedVersion": "$LATEST"
+    },
+    "responsePayload": {
+        "starting_tsp": "2021-02-20T08:30:00",
+        "ending_tsp": "2021-02-20T11:30:00",
+        "total_time": 240,
+        "total_power_consumption": 366.2,
+        "average_power_consumption": 1.5258333333333334
+    }
+}

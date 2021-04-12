@@ -15,11 +15,8 @@ THRESHOLD = 1
 actuator_url='https://my-actuator.iot'
 
 def lambda_handler(event, context):
-	try:
-		average = event['responsePayload']['average_power_consumption']
-	except:
-		raise IOError(json.dumps(event))
-
+	average = event['average_power_consumption']
+	
 	command = 0
 
 	if average > THRESHOLD:
