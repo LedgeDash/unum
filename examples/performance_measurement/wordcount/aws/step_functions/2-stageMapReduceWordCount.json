@@ -1,0 +1,16 @@
+{
+  "Comment": "2-stage iot app with no controller",
+  "StartAt": "Map",
+  "States": {
+    "Map": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-west-1:908344970015:function:wc-map-step-functions",
+      "Next": "Reduce"
+    },
+    "Reduce": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-west-1:908344970015:function:wc-reduce-step-functions",
+      "End": true
+    }
+  }
+}
