@@ -53,14 +53,13 @@ def lambda_handler(event, context):
     }
 
     response = client.invoke(
-        FunctionName='hvac_controller-http-sync',
+        FunctionName='hvac_controller-http-sync-nsb',
         InvocationType='RequestResponse',
         LogType='None',
         Payload=json.dumps(ret),
     )
 
     ret = response['Payload'].read()
-    # response['Payload'].close()
 
     return ret
 

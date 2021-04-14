@@ -6,6 +6,9 @@ import sys
 import argparse
 
 def process(f):
+	'''Given a CloudWatch log csv file descriptor, return a list of tuples
+	with each tuple being (START timestamp, END timestamp) of a Lambda
+	invocation'''
 	timestamps = [row[0] for row in f if row[1].startswith('START') or row[1].startswith('END') ]
 	i=0
 	ret = []
@@ -20,6 +23,7 @@ def main():
 	parser = argparse.ArgumentParser(description='Process CloudWatch logs for a 2-function pipeline')
 	parser.add_argument('first_function_log')
 	parser.add_argument('second_function_log')
+	parser.add_argument('controller_log')
 	args = parser.parse_args()
 	
 	with open(args.first_function_log) as f:
@@ -30,7 +34,11 @@ def main():
 		r = csv.reader(f)
 		hvac_tsp = process(r)
 
-	assert(len(aggregator_tsp) == len(hvac_tsp))
+	with open(args.controller_log) as f:
+		r = csv.reader(f)
+		controller_tsp = process(r)
+
+	assert(len(aggregator_tsp) == len(hvac_tsp) == len(controller_tsp))
 
 	# Calculate the runtime duration
 	aggregator_runtime = np.array([(aggregator_tsp[i][1] - aggregator_tsp[i][0]) for i in range(len(aggregator_tsp))])
@@ -51,6 +59,7 @@ def main():
 	fig.savefig('runtime.png')
 
 	# Calculate the invocation latency
+
 	latency = np.array([(hvac_tsp[i][0] - aggregator_tsp[i][1]) for i in range(len(aggregator_tsp))])
 	mean = np.mean(latency)
 	stdev = np.std(latency)
@@ -66,15 +75,15 @@ def main():
 
 	axs[1].set_xlabel('latency (ms)')
 	axs[1].set_ylabel('count')
-	axs[1].text(60, 60, '$\mu=${:.2f}, $\sigma=${:.2f}'.format(mean, stdev))
+	axs[1].text(30, 20, '$\mu=${:.2f}, $\sigma=${:.2f}'.format(mean, stdev))
 
 	fig.savefig('invocation_latency.png')
 
 	print('mean: {}'.format(np.mean(latency)))
 	print('stdev: {}'.format(np.std(latency)))
 
-	# Calculate the e2e latency
-	e2e_latency = np.array([hvac_tsp[i][1] - aggregator_tsp[i][0] for i in range(len(aggregator_tsp))])
+
+	e2e_latency = np.array([controller_tsp[i][1] - controller_tsp[i][0] for i in range(len(controller_tsp))])
 
 	e2e_mean = np.mean(e2e_latency)
 	e2e_stdev = np.std(e2e_latency)
@@ -87,10 +96,19 @@ def main():
 
 	ax.set(xlabel='iteration', ylabel='latency (ms)',
 	       title='end-to-end latency')
-	ax.text(100, 400, '$\mu=${:.2f}, $\sigma=${:.2f}'.format(e2e_mean, e2e_stdev))
+	ax.text(170, 120, '$\mu=${:.2f}, $\sigma=${:.2f}'.format(e2e_mean, e2e_stdev))
 	ax.grid()
 
 	fig.savefig("e2e_latency.png")
+
+	iot_start_to_agg_start = np.array([aggregator_tsp[i][0] - controller_tsp[i][0]  for i in range(len(controller_tsp))])
+	print('To agg mean: {}'.format(np.mean(iot_start_to_agg_start)))
+	print('To agg stdev: {}'.format(np.std(iot_start_to_agg_start)))
+
+
+	hvac_end_to_iot_end = np.array([controller_tsp[i][1] - hvac_tsp[i][1] for i in range(len(controller_tsp))])
+	print('From hvac mean: {}'.format(np.mean(hvac_end_to_iot_end)))
+	print('From hvac  stdev: {}'.format(np.std(hvac_end_to_iot_end)))
 
 if __name__ == '__main__':
 	main()

@@ -1,0 +1,16 @@
+{
+  "Comment": "2-stage iot app with no controller",
+  "StartAt": "aggregator",
+  "States": {
+    "aggregator": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-west-1:908344970015:function:aggregator-destination",
+      "Next": "hvac"
+    },
+    "hvac": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-west-1:908344970015:function:hvac_controller-destination",
+      "End": true
+    }
+  }
+}

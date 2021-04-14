@@ -10,17 +10,10 @@
 # 1. S3 events
 # 2. SNS messages
 # 3. Destination
-#
-# Next Function Invocation Method:
-# This version invokes hvac_controller asynchronously via boto3
 
 import json
 from datetime import datetime
 from functools import reduce
-import boto3
-from multiprocessing import Process
-
-client = boto3.client('lambda')
 
 def to_datetime(elem):
 	if len(elem) != 1:
@@ -44,23 +37,10 @@ def lambda_handler(event, context):
 
     average_power_consumption = total_power_consumption/total_time_in_mins
 
-    ret = {
-        "starting_tsp": datetime.isoformat(series[0][0]),
-        "ending_tsp": datetime.isoformat(series[-1][0]),
-        "total_time": total_time_in_mins,
-        "total_power_consumption": total_power_consumption,
-        "average_power_consumption": average_power_consumption
+    return {
+    	"starting_tsp": datetime.isoformat(series[0][0]),
+    	"ending_tsp": datetime.isoformat(series[-1][0]),
+    	"total_time": total_time_in_mins,
+    	"total_power_consumption": total_power_consumption,
+    	"average_power_consumption": average_power_consumption
     }
-
-    response = client.invoke(
-        FunctionName='hvac_controller-http-sync',
-        InvocationType='RequestResponse',
-        LogType='None',
-        Payload=json.dumps(ret),
-    )
-
-    ret = response['Payload'].read()
-    # response['Payload'].close()
-
-    return ret
-

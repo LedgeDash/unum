@@ -1,5 +1,5 @@
-aggregator-lambda = aggregator-http-sync
-hvac_controller-lambda = hvac_controller-http-sync
+aggregator-lambda = aggregator-http-sync-nsb
+hvac_controller-lambda = hvac_controller-http-sync-nsb
 role = arn:aws:iam::908344970015:role/lambda-ex
 
 aggregator.zip: aggregator.py

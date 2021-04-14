@@ -66,7 +66,7 @@ def main():
 
 	axs[1].set_xlabel('latency (ms)')
 	axs[1].set_ylabel('count')
-	axs[1].text(60, 60, '$\mu=${:.2f}, $\sigma=${:.2f}'.format(mean, stdev))
+	axs[1].text(60, 50, '$\mu=${:.2f}, $\sigma=${:.2f}'.format(mean, stdev))
 
 	fig.savefig('invocation_latency.png')
 
@@ -87,7 +87,7 @@ def main():
 
 	ax.set(xlabel='iteration', ylabel='latency (ms)',
 	       title='end-to-end latency')
-	ax.text(100, 400, '$\mu=${:.2f}, $\sigma=${:.2f}'.format(e2e_mean, e2e_stdev))
+	ax.text(200, 190, '$\mu=${:.2f}, $\sigma=${:.2f}'.format(e2e_mean, e2e_stdev))
 	ax.grid()
 
 	fig.savefig("e2e_latency.png")

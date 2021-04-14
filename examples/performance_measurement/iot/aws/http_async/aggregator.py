@@ -52,12 +52,18 @@ def lambda_handler(event, context):
     }
 
 
-    client.invoke(
+    response = client.invoke(
         FunctionName='hvac_controller-http-async',
         InvocationType='Event',
         LogType='None',
         Payload=json.dumps(ret),
     )
+
+    ret = response['Payload'].read()
+
+    # response['Payload'].close()
+
+    return ret
 
     # response = client.invoke(
     #     FunctionName='hvac_controller-http-async',

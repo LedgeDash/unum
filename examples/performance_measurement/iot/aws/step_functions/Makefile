@@ -1,5 +1,6 @@
-aggregator-lambda = aggregator-http-sync
-hvac_controller-lambda = hvac_controller-http-sync
+aggregator-lambda = aggregator-step-functions
+hvac_controller-lambda = hvac_controller-step-functions
+aggregator_destination_config_file = aggregator_destination_config.json
 role = arn:aws:iam::908344970015:role/lambda-ex
 
 aggregator.zip: aggregator.py
@@ -23,12 +24,20 @@ create: aggregator.py hvac_controller.py
 	--runtime python3.7 \
 	--role $(role)
 
-
 update: aggregator.py hvac_controller.py
 	aws lambda update-function-code --function-name $(aggregator-lambda) --zip-file fileb://aggregator.zip
 	aws lambda update-function-code --function-name $(hvac_controller-lambda) --zip-file fileb://hvac_controller.zip
 
 up: build update
+
+generate-destination:
+	echo "{\"OnSuccess\": {\"Destination\": \"`aws lambda get-function --function-name $(hvac_controller-lambda) | grep FunctionArn | cut -d '"' -f 4`\"} }" > $(aggregator_destination_config_file)
+
+#set-destination: generate-destination
+#	aws lambda put-function-event-invoke-config --function-name aggregator-destination --destination-config fileb://aggregator_destination_config.json
+
+clear-destination: 
+	aws lambda delete-function-event-invoke-config --function-name $(aggregator-lambda)
 
 test-aggregator:
 	aws lambda invoke --function-name $(aggregator-lambda) --payload fileb://../power_consumption_data.json out
