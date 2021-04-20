@@ -1,22 +1,18 @@
-import json
 import boto3
+import json
 
 client = boto3.client('lambda')
 
 def lambda_handler(event, context):
-    text = event['data']
-
-    words = text.split()
-
-    ret = [(word, 1) for word in words]
+    data = {'data': 'Hello'}
 
     response = client.invoke(
-        FunctionName='wc-reduce-http-async',
+        FunctionName='from-http-async',
         InvocationType='Event',
         LogType='None',
-        Payload=json.dumps(ret),
+        Payload=json.dumps(data),
     )
 
     ret = response['Payload'].read()
 
-    return
+    
