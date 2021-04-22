@@ -47,7 +47,10 @@ perform heavy computations in the orchestrator for billing purposes. For
 example, in DF, heavy computation means longer restoration time.
 
 
+# Fan-in
 
+
+# Limitations
 
 * Doesn't yet support composing workflows. Functions called by the workflow
   file are assumed to be leaf functions, not other workflows.
