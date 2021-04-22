@@ -18,7 +18,7 @@ class UnumDataflowCallNode(UnumDataflowNode):
 		self.faas=False
 		super().__init__(name)
 
-	def set_faas():
+	def set_faas(self):
 		self.faas=True
 
 class UnumPyAstProcessor(ast.NodeVisitor):
@@ -127,6 +127,9 @@ class UnumPyAstProcessor(ast.NodeVisitor):
 	def visit_Call(self, node):
 		call_node = UnumDataflowCallNode(node.func.id)
 		args_node = [self.visit(a) for a in node.args]
+
+		if call_node.name in self.unum_faas_functions:
+			call_node.set_faas()
 
 		# update dependency
 		for an in args_node:
