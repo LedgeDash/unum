@@ -23,3 +23,19 @@
 		"args": ["action"]
 	}
 }
+
+{
+	"event": {
+		"type":"input"
+	},
+	"aggregator": {
+		"type": "function",
+		"location": "../examples/aggregator_raw_data_no_se/",
+		"args": ["event"]
+	},
+	"hvac_controller": {
+		"type": "function",
+		"location": "../examples/hvac_controller_raw_data_no_se/",
+		"args": ["aggregator"]
+	}
+}

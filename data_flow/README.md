@@ -1,6 +1,6 @@
 # Pipelining
 
-To express a pipeline, you can simple chain them as if they are regular functions:
+To express a pipeline, you can simply chain them as if they are regular functions:
 
 ```python
 f3(f2(f1(input)))

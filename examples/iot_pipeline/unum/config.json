@@ -1,0 +1,15 @@
+{
+	"workflow": "workflow_chain.py",
+	"faas_functions": [
+		{
+			"name": "aggregator",
+			"location": "aggregator/aggregator.py",
+			"function_name": "lambda_handler"
+		},
+		{
+			"name": "hvac_controller",
+			"location": "hvac_controller/hvac_controller.py",
+			"function_name": "lambda_handler"
+		}
+	]
+}
