@@ -5,7 +5,7 @@ monitor sends data to the aggregator to compute some aggregate statistics and
 the hvac_controller uses those statistics to decide whether to turn the HVAC
 system down.
 
-![IoT_HVAC](https://github.com/LedgeDash/unum-compiler/blob/main/examples/iot_raw_data_no_se/IoT_HVAC.png)
+![IoT_HVAC](https://github.com/LedgeDash/unum-compiler/blob/main/examples/iot_pipeline/IoT_HVAC.png)
 
 # unum Application
 
