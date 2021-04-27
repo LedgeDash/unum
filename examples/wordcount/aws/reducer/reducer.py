@@ -1,9 +1,9 @@
 import json
 
-def lambda_handler(event, context):
+def handle(data):
 	ret = {}
 
-	for item in event:
+	for item in data:
 		if item[0] in ret:
 			ret[item[0]] = ret[item[0]]+item[1]
 		else:
