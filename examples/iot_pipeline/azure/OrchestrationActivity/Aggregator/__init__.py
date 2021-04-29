@@ -20,8 +20,6 @@ def to_datetime(elem):
 	return (time, elem[time_str])
 
 def main(name):
-    # logging.info(f"aggregator input data '{name}'.")
-    # logging.info(f"aggregator input data type '{type(name)}'.")
 
     series = name
     num_elem = len(series)

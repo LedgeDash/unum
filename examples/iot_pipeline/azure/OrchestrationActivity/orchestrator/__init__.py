@@ -16,12 +16,7 @@ import azure.durable_functions as df
 def orchestrator_function(context: df.DurableOrchestrationContext):
     data = context.get_input()
 
-    # logging.info(f"Orchestration input data '{data}'.")
-    # logging.info(f"Orchestration input data type '{type(data)}'.")
-
     aggregator_ret = yield context.call_activity('Aggregator', data)
-    # logging.info(f"aggregator output data '{aggregator_ret}'.")
-    # logging.info(f"aggregator output data type '{type(aggregator_ret)}'.")
     result = yield context.call_activity('HvacController', aggregator_ret)
 
     return result

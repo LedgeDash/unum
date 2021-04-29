@@ -13,9 +13,6 @@ THRESHOLD = 1
 
 def main(name):
 
-    # logging.info(f"hvac controller input data '{name}'.")
-    # logging.info(f"hvac controller input data type '{type(name)}'.")
-    
     average = name['average_power_consumption']
 
     command = 0
