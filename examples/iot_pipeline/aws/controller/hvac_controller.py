@@ -15,16 +15,16 @@ THRESHOLD = 1
 actuator_url='https://my-actuator.iot'
 
 def lambda_handler(event, context):
-	average = event['average_power_consumption']
+    average = event['average_power_consumption']
 
-	command = 0
+    command = 0
 
-	if average > THRESHOLD:
-		command = 1
+    if average > THRESHOLD:
+        command = 1
 
-	action = {
-		"timestamp": datetime.now().isoformat(timespec='milliseconds'),
-		"reduce_power": command
-	}
+    action = {
+        "timestamp": datetime.now().isoformat(timespec='milliseconds'),
+        "reduce_power": command
+    }
 
-	return action
+    return action
