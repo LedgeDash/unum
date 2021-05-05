@@ -1,0 +1,54 @@
+{
+  "Comment": "MapReduce wordcount with fixed number of reducers",
+  "StartAt": "Count",
+  "States": {
+
+    "Count": {
+      "Type": "Map",
+      "ItemsPath": "$.chunks",
+      "MaxConcurrency": 0,
+      "Next": "Partition",
+
+      "Iterator": {
+        "StartAt": "Mapper",
+        "States": {
+          "Mapper": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:us-west-1:908344970015:function:wc-fixedReducer-singleEmit-map-step-functions",
+            "End": true
+          }
+        }
+      }
+    },
+
+    "Partition": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-west-1:908344970015:function:wc-fixedReducer-singleEmit-partition-step-functions",
+      "Next": "Reduce"
+    },
+
+    "Reduce": {
+      "Type": "Map",
+      "ItemsPath": "$",
+      "MaxConcurrency": 0,
+      "Next": "Summary",
+
+      "Iterator": {
+        "StartAt": "Reducer",
+        "States": {
+          "Reducer": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:us-west-1:908344970015:function:wc-fixedReducer-singleEmit-reduce-step-functions",
+            "End": true
+          }
+        }
+      }
+    },
+
+    "Summary": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-west-1:908344970015:function:wc-fixedReducer-singleEmit-summary-step-functions",
+      "End": true
+    }
+  }
+}

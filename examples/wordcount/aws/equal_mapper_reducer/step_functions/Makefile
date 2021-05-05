@@ -48,4 +48,4 @@ up: build update
 test-app:
 	aws stepfunctions start-execution \
 	--state-machine-arn  $(step-functions-arn) \
-	--input file://../../../asyoulike-trimmed-chunks.json
+	--input file://../../../6Jokes-chunks.json
