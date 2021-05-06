@@ -5,7 +5,7 @@
 
     "Count": {
       "Type": "Map",
-      "ItemsPath": "$.chunks",
+      "ItemsPath": "$.data",
       "MaxConcurrency": 0,
       "Next": "Partition",
 

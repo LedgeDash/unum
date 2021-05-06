@@ -1,0 +1,4 @@
+{
+	"type": "manyToOne",
+	"next": "arn:aws:lambda:us-west-1:908344970015:function:wc-fixedReducer-singleEmit-partition-http-async-s3"
+}

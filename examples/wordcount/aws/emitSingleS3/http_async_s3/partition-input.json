@@ -1,0 +1,10 @@
+{
+	"unum_metadata": {
+		"inputType":"s3", 
+		"fanOutSize": 6
+	},
+	"data": {
+		"bucket": "mapper-return-wc-fixedreducer-singleemit-http-async-s3", 
+		"directory": "d973619a-2bc9-4f35-8aac-4173ccd6bc87"
+	}
+}

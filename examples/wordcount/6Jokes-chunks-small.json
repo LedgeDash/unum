@@ -1,5 +1,5 @@
 {
-	"chunks": [
+	"data": [
 		{
 		"text": "Autocorrect can go straight to he’ll   Q: Why did the computer show up at work late? A: It had a hard drive.   I saw a driver texting and driving. It made me so mad I threw my beer at him.    You know you're texting too much when you say LOL in real life, instead of just laughing.   Instagram is just Twitter for people who go outside.   I can still remember a time when I knew more than my phone.",
 		"destination": "mapreduce-wordcount-fixedreducer-single"

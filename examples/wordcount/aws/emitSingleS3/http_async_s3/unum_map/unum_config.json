@@ -1,0 +1,8 @@
+{
+	"type": "manyToMany",
+	"next": "arn:aws:lambda:us-west-1:908344970015:function:wc-fixedReducer-singleEmit-map-http-async-s3",
+	"invokeeReturnStore": {
+		"type": "s3",
+		"bucket": "mapper-return-wc-fixedreducer-singleemit-http-async-s3"
+	}
+}
