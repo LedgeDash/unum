@@ -4,6 +4,7 @@ import json
 import boto3
 import uuid
 import os
+import time
 
 class NodeType(Enum):
     oneToOne = 0
@@ -161,16 +162,33 @@ def egress(output, context, myCoordinator):
 
             s3_client.upload_file(local_file_path, myCoordinator.returnValueStore['bucket'], f"{myCoordinator.returnValueStore['directory']}/{fn}")
 
+            if myCoordinator.fan['myIndex']+1 == myCoordinator.fan['size']:
+                # wait until all other invokees complete
+                keys = []
+                while len(keys) < myCoordinator.fan['size']:
+                    response = s3_client.list_objects(
+                        Bucket=myCoordinator.returnValueStore['bucket'],
+                        Prefix=f"{myCoordinator.returnValueStore['directory']}/" # e.g., reducer0/
+                    )
+
+                    keys = list(filter(lambda x: x.endswith('/') == False, [e['Key'] for e in response['Contents']]))
+
+                    if len(keys) == myCoordinator.fan['size']:
+                        break
+                    elif len(keys) > myCoordinator.fan['size']:
+                        raise IOError(f'More invokee return values than fan-out size')
+
+                    time.sleep(0.1)
+
+                dataInS3 = {
+                    "unum_metadata": {"inputType":"s3", "fanOutSize": myCoordinator.fan['size']},
+                    "data": {"bucket": myCoordinator.returnValueStore['bucket'], "directory": myCoordinator.returnValueStore['directory']}
+                }
+                rsp = myCoordinator.httpAsyncInvoke(dataInS3)
+                rsp['Payload'].read()
+
         else:
             raise IOError(f"Unknown data store type for manyToOne returnValueStore: {myCoordinator.returnValueStore['type']}")
-
-        if myCoordinator.fan['myIndex']+1 == myCoordinator.fan['size']:
-            dataInS3 = {
-                "unum_metadata": {"inputType":"s3", "fanOutSize": myCoordinator.fan['size']},
-                "data": {"bucket": myCoordinator.returnValueStore['bucket'], "directory": myCoordinator.returnValueStore['directory']}
-            }
-            rsp = myCoordinator.httpAsyncInvoke(dataInS3)
-            rsp['Payload'].read()
 
     elif myCoordinator.type == NodeType.end:
         # raise IOError(f'{output}')
