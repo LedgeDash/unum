@@ -61,7 +61,9 @@ def ingress(event, context, myCoordinator):
         myCoordinator.returnValueStore = unum_metadata['returnValueStore']
         myCoordinator.myInput = event['data']
 
-    if myCoordinator.type == NodeType.manyToMany or myCoordinator.type == NodeType.end:
+    if (myCoordinator.type == NodeType.manyToMany or
+        myCoordinator.type == NodeType.end):
+
         if unum_metadata["inputType"] == "s3":
             data = event['data']
             s3_client = boto3.client('s3')
@@ -77,10 +79,6 @@ def ingress(event, context, myCoordinator):
 
             
             os.makedirs(f"/tmp/{data['directory']}")
-            # if not os.path.exists(f"/tmp/{data['directory']}"):
-            #     raise IOError(f"directory /tmp/{data['directory']} does not exist")
-
-            # raise IOError(f'{keys}')
 
             for k in keys:
                 if k.endswith('/'):
@@ -93,8 +91,27 @@ def ingress(event, context, myCoordinator):
 
             myCoordinator.myInput = myInput
 
+        elif unum_metadata["inputType"] == "dynamodb":
+            table = event['data']['table']
+            sessionID = event['data']['item']
+
+            dynamodb_client = boto3.client('dynamodb')
+            rsp = dynamodb_client.get_item(TableName=table,
+                Key={"sessionID":{"S":sessionID}},
+                ConsistentRead=True
+            )
+
+            if 'Item' in rsp:
+                # validate that count is equal to fanOutSize
+                if int(rsp['Item']['count']['N']) != unum_metadata['fanOutSize']:
+                    raise IOError(f"Fan-in Lambda expects {unum_metadata['fanOutSize']} task outputs. Got {rsp['Item']['count']['N']}")
+                    
+                myCoordinator.myInput = [json.loads(e['S']) for e in rsp['Item']['returnValues']['L']]
+            else:
+                raise IOError(f'Failed to read fan-out tasks output from dynamodb')
+
         else:
-            raise IOError(f'Unknown input type: {unum_metadata["inputType"]}')
+            raise IOError(f"Unknown input type: {unum_metadata['inputType']}")
     
 
 def egress(output, context, myCoordinator):
@@ -102,7 +119,7 @@ def egress(output, context, myCoordinator):
     if myCoordinator.type == NodeType.manyToMany:
         # check if the user function output is an array
         if isinstance(output, list) == False:
-            raise IOError(f'Many-to-many node requires list output but instead got {type(output)}. {output}')
+            raise IOError(f'Many-to-many nodes require list output but instead got {type(output)}. {output}')
 
         myCoordinator.nextInput = output
         myCoordinator.nextInputLen = len(output)
@@ -117,7 +134,23 @@ def egress(output, context, myCoordinator):
             myCoordinator.invokeeReturnStore['directory'] = directoryName
 
         elif myCoordinator.invokeeReturnStore['type'] == 'dynamodb':
-            pass
+            dynamodb_client = boto3.client('dynamodb')
+            itemName = f'{uuid.uuid4()}'
+
+            # create an item with the primary key (`session`) being a uuid
+            # string, and a `count` attribute equal to 0 and a `result`
+            # attribute being an empty list.
+
+            dynamodb_client.put_item(TableName=f"{myCoordinator.invokeeReturnStore['table']}",
+                Item={
+                    'sessionID': {'S': itemName},
+                    'count': {'N':"0"},
+                    'returnValues':{'L': []}
+                }
+            )
+            # TODO: add error handling
+            myCoordinator.invokeeReturnStore['item'] = itemName
+
         elif myCoordinator.invokeeReturnStore['type'] == 'redis':
             pass
         elif myCoordinator.invokeeReturnStore['type'] == 'elasticache':
@@ -125,6 +158,7 @@ def egress(output, context, myCoordinator):
         else:
             raise IOError(f'Unknown data store for invokee return values')
 
+        # Invoke one instance of the fan-out task Lambda per list element.
         nextInput = []
 
         for i, d in enumerate(myCoordinator.nextInput):
@@ -186,6 +220,51 @@ def egress(output, context, myCoordinator):
                 }
                 rsp = myCoordinator.httpAsyncInvoke(dataInS3)
                 rsp['Payload'].read()
+
+        elif myCoordinator.returnValueStore['type'] == 'dynamodb':
+            dynamodb_client = boto3.client('dynamodb')
+            table = myCoordinator.returnValueStore['table']
+            sessionID = myCoordinator.returnValueStore['item']
+            outputJson = json.dumps(output)
+
+            # Add output to the `returnValues` attribute of the item with
+            # primary key `sessionID`.
+            dynamodb_client.update_item(TableName=table,
+                Key={"sessionID": {"S": sessionID} },
+                ExpressionAttributeValues={
+                    ':i': {"L": [{"S": outputJson}]},
+                },
+                ExpressionAttributeNames={"#rv": "returnValues"},
+                UpdateExpression="SET #rv = list_append(#rv, :i)"
+            )
+
+            # atomically increment the `count` attribute by 1
+            rsp = dynamodb_client.update_item(TableName=table,
+                Key={"sessionID": {"S": sessionID} 
+                },
+                ExpressionAttributeValues={
+                    ':incr': {"N": "1"},
+                },
+                ExpressionAttributeNames={"#cnt": "count"},
+                UpdateExpression="SET #cnt = #cnt + :incr",
+                ReturnValues="UPDATED_NEW"
+            )
+            # read the `count` attribute and check if it's equal to
+            # fanOutSize. If yes, invoke the fan-in lambda
+            if rsp['ResponseMetadata']['HTTPStatusCode'] == 200 and 'Attributes' in rsp:
+                curr_count =  int(rsp['Attributes']['count']['N'])
+
+                if curr_count == myCoordinator.fan['size']:
+                    # invoke the fan-in lambda
+                    dataInDynamo = {
+                        "unum_metadata": {"inputType":"dynamodb", "fanOutSize": myCoordinator.fan['size']},
+                        "data": {"table": myCoordinator.returnValueStore['table'], "item": myCoordinator.returnValueStore['item']}
+                    }
+                    rsp = myCoordinator.httpAsyncInvoke(dataInDynamo)
+                    rsp['Payload'].read()
+            else:
+                raise IOError(f"Failed to write to dynamodb. HTTPStatusCode: {rsp['ResponseMetadata']['HTTPStatusCode']}")
+
 
         else:
             raise IOError(f"Unknown data store type for manyToOne returnValueStore: {myCoordinator.returnValueStore['type']}")
