@@ -19,6 +19,7 @@ link:
 	-cp ../mapreduce.py reducer/mapreduce.py
 	-cp ../summary.py summary/lambda_handler.py
 	-cp ../partition.py partition/lambda_handler.py
+	-cp ../../../../../unum_wrapper.py unum_wrapper.py
 
 unummap.zip: unum_map
 	zip -rj unummap.zip unum_wrapper.py unum_map
@@ -132,4 +133,5 @@ clean:
 	-rm mapper/lambda_handler.py mapper/user_map.py mapper/mapreduce.py \
 	reducer/lambda_handler.py reducer/user_reduce.py reducer/mapreduce.py \
 	summary/lambda_handler.py \
-	partition/lambda_handler.py
+	partition/lambda_handler.py \
+	unum_wrapper.py

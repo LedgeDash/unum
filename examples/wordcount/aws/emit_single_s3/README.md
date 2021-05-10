@@ -1,10 +1,11 @@
 This directory contains one implementation of MapReduce wordcount over AWS
-Lambda and S3. This implementation explicitly use s3 as the intermediary
-datastore.
+Lambda and S3. This implementation explicitly use s3 as the datastore to store
+mappers' intermediary results (e.g., `(word, 1)` pairs).
 
 A primary goal is to separate component function logic from orchestration
 logic. We can use either Step Functions or hand-tuned triggers to compose the
-workflow *without modifying the component functions*.
+workflow *without modifying the component functions*. We implement 3 different
+trigger-based orchestrations (see the orchestration section for details).
 
 # Component Functions
 
@@ -144,10 +145,16 @@ The step function definition is in `step_function/definition.json`.
 
 ## Trigger-based
 
-### HTTP Sync + Datastore
+We implement the following trigger-based orchestrations:
+
+1. Async HTTP + S3 synchronization point
+2. Async HTTP + S3 synchronization point + S3 trigger for fan-in
+3. Async HTTP + DynamoDB synchronization ponit
+
+### HTTP Sync + S3 synchronization point
 
 A `unum_map` Lambda that serves as the frontend of the workflow. Input data,
-such as `6Jokes-chunks-small.json` is sent first to a `unum_map` instance.
+such as `6Jokes-chunks-small.json`, is sent first to a `unum_map` instance.
 
 `unum_map` expects the input data to be an array. For each element of the
 array, `unum_map` invokes an instance of the fan-out Lambda.
@@ -211,6 +218,28 @@ The `.next` config for reducers will know that it's fanning in to the
 
 `http_sync_s3` is an example. Each directory is not function.
 
+
+### HTTP Sync + DynamoDB synchronization point
+
+Fan-out initiator Lambda: 
+
+1. creates a DynamoDB atomic counter
+2. creates a ordered list on DynamoDB to store fan-out task Lambdas' outputs
+
+Fan-out task Lambdas:
+
+1. write its outputs to the correct index in the ordered list
+2. increment the atomic counter
+3. check if the counter is equal to the fan-out size
+   * if yes, invoke the fan-in Lambda and pass the DynamoDB table with the ordered list
+   * if no, exit
+
+
+References:
+
+* [Atomic counters in
+  DynamoDB](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/WorkingWithItems.html#WorkingWithItems.AtomicCounters)
+* [DynamoDB conditional updates](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.ConditionExpressions.html)
 
 ## HTTP only??
 
