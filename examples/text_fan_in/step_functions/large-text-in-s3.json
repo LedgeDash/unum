@@ -1,0 +1,7 @@
+{
+    "data": [
+    	{"bucket": "text-fan-in-large", "key": "chunk0.txt"}, 
+    	{"bucket": "text-fan-in-large", "key": "chunk1.txt"},
+    	{"bucket": "text-fan-in-large", "key": "chunk2.txt"}
+    ]
+}

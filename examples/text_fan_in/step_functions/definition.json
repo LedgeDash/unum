@@ -1,0 +1,30 @@
+{
+  "Comment": "convert to uppercase and then concatenate",
+  "StartAt": "Uppers",
+  "States": {
+
+    "Uppers": {
+      "Type": "Map",
+      "ItemsPath": "$.data",
+      "MaxConcurrency": 0,
+      "Next": "Cat",
+
+      "Iterator": {
+        "StartAt": "Upper",
+        "States": {
+          "Upper": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:us-west-1:908344970015:function:text-fan-in-upper",
+            "End": true
+          }
+        }
+      }
+    },
+
+    "Cat": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-west-1:908344970015:function:text-fan-in-cat",
+      "End": true
+    }
+  }
+}
