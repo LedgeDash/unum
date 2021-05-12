@@ -39,6 +39,9 @@ class Coordinator(object):
 
     def httpAsyncInvoke(self, data):
         # data should be JSON serializable
+        if self.invokee=="":
+            return
+
         response = self.lambda_client.invoke(
         FunctionName=self.invokee,
         InvocationType='Event',
@@ -57,12 +60,20 @@ def ingress(event, context, myCoordinator):
     unum_metadata = event['unum_metadata']
 
     if myCoordinator.type == NodeType.manyToOne:
-        myCoordinator.fan = {'size': unum_metadata['fanOutSize'], 'myIndex': unum_metadata['index']}
-        myCoordinator.returnValueStore = unum_metadata['returnValueStore']
+        # myCoordinator.fan = {'size': unum_metadata['fanOutSize'], 'myIndex': unum_metadata['index']}
+        # myCoordinator.returnValueStore = unum_metadata['returnValueStore']
+        myCoordinator.myInput = event['data']
+    if myCoordinator.type == NodeType.oneToOne:
+        # oneToOne assumes the input data is passed via HTTP. It's either
+        # directly from a client or via HTTP (boto3) from another Lambda
         myCoordinator.myInput = event['data']
 
     if (myCoordinator.type == NodeType.manyToMany or
         myCoordinator.type == NodeType.end):
+
+        if "inputType" not in unum_metadata:
+            myCoordinator.myInput = event['data']
+            return
 
         if unum_metadata["inputType"] == "s3":
             data = event['data']
@@ -114,7 +125,7 @@ def ingress(event, context, myCoordinator):
             raise IOError(f"Unknown input type: {unum_metadata['inputType']}")
     
 
-def egress(output, context, myCoordinator):
+def egress(output, event, context, myCoordinator):
 
     if myCoordinator.type == NodeType.manyToMany:
         # check if the user function output is an array
@@ -180,6 +191,11 @@ def egress(output, context, myCoordinator):
             r['Payload'].read()
 
     elif myCoordinator.type == NodeType.manyToOne:
+        unum_metadata = event['unum_metadata']
+
+        myCoordinator.fan = {'size': unum_metadata['fanOutSize'], 'myIndex': unum_metadata['index']}
+        myCoordinator.returnValueStore = unum_metadata['returnValueStore']
+
         # First write my return values to the datastore in
         # myCoordinator.returnValueStore. Then if I'm the last invokee in the
         # fan, wait until all the other invokees write to the
@@ -269,9 +285,79 @@ def egress(output, context, myCoordinator):
         else:
             raise IOError(f"Unknown data store type for manyToOne returnValueStore: {myCoordinator.returnValueStore['type']}")
 
+    elif myCoordinator.type == NodeType.oneToOne:
+        # if this function is an intermediate step in a fan-out pipeline, it
+        # should simply pass the returnValueStore forward. Otherwise, create
+        # an empty "unum_metadata" field.
+        if "unum_metadata" in event:
+            ret = {"data":output, "unum_metadata": event["unum_metadata"]}
+        else:
+            ret = {"data":output, "unum_metadata": {}}
+
+        rsp = myCoordinator.httpAsyncInvoke(ret)
+        rsp['Payload'].read()
+
     elif myCoordinator.type == NodeType.end:
-        # raise IOError(f'{output}')
-        pass
+        # when this is the last lambda in a fan-out pipeline, write my results
+        # to the returnValueStore. If I'm in a single pipeline, just return
+        if 'unum_metadata' not in event:
+            return
+            
+        unum_metadata = event['unum_metadata']
+        if 'returnValueStore' not in unum_metadata:
+            return
+
+        myCoordinator.fan = {'size': unum_metadata['fanOutSize'], 'myIndex': unum_metadata['index']}
+        myCoordinator.returnValueStore = unum_metadata['returnValueStore']
+
+        # First write my return values to the datastore in
+        # myCoordinator.returnValueStore. Then if I'm the last invokee in the
+        # fan, wait until all the other invokees write to the
+        # returnValueStore, then invoke the next stage and pass to it the
+        # datastore pointer.
+        if myCoordinator.returnValueStore['type'] == 's3':
+            s3_client = boto3.client('s3')
+
+            fn = f"index-{myCoordinator.fan['myIndex']}-outof-{myCoordinator.fan['size']}.json"
+            local_file_path = '/tmp/'+fn
+
+            with open(local_file_path, 'w') as f:
+                f.write(json.dumps(output))
+
+            s3_client.upload_file(local_file_path, myCoordinator.returnValueStore['bucket'], f"{myCoordinator.returnValueStore['directory']}/{fn}")
+
+        elif myCoordinator.returnValueStore['type'] == 'dynamodb':
+            dynamodb_client = boto3.client('dynamodb')
+            table = myCoordinator.returnValueStore['table']
+            sessionID = myCoordinator.returnValueStore['item']
+            outputJson = json.dumps(output)
+
+            # Add output to the `returnValues` attribute of the item with
+            # primary key `sessionID`.
+            dynamodb_client.update_item(TableName=table,
+                Key={"sessionID": {"S": sessionID} },
+                ExpressionAttributeValues={
+                    ':i': {"L": [{"S": outputJson}]},
+                },
+                ExpressionAttributeNames={"#rv": "returnValues"},
+                UpdateExpression="SET #rv = list_append(#rv, :i)"
+            )
+
+            # atomically increment the `count` attribute by 1
+            rsp = dynamodb_client.update_item(TableName=table,
+                Key={"sessionID": {"S": sessionID} 
+                },
+                ExpressionAttributeValues={
+                    ':incr': {"N": "1"},
+                },
+                ExpressionAttributeNames={"#cnt": "count"},
+                UpdateExpression="SET #cnt = #cnt + :incr",
+                ReturnValues="UPDATED_NEW"
+            )
+            
+        else:
+            raise IOError(f"Unknown data store type for manyToOne returnValueStore: {myCoordinator.returnValueStore['type']}")
+
 
     else:
         raise IOError(f'Unknown Coordinator type: {myCoordinator.type}')
@@ -288,7 +374,7 @@ def lambda_handler(event, context):
 
     user_function_output = user_lambda(myCoordinator.myInput, context)
 
-    egress(user_function_output, context, myCoordinator)
+    egress(user_function_output, event, context, myCoordinator)
 
     return user_function_output
     

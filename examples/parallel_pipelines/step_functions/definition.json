@@ -1,0 +1,34 @@
+{
+  "Comment": "artificial parallel pipelines",
+  "StartAt": "Pipeline",
+  "States": {
+
+    "Pipeline": {
+      "Type": "Map",
+      "ItemsPath": "$.data",
+      "MaxConcurrency": 0,
+      "End": true,
+
+      "Iterator": {
+        "StartAt": "F1",
+        "States": {
+          "F1": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:us-west-1:908344970015:function:parallel-pipeline-f1",
+            "Next": "F2"
+          },
+          "F2": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:us-west-1:908344970015:function:parallel-pipeline-f2",
+            "Next": "F3"
+          },
+          "F3": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:us-west-1:908344970015:function:parallel-pipeline-f3",
+            "End": true
+          }
+        }
+      }
+    }
+  }
+}

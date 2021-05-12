@@ -1,0 +1,8 @@
+{
+	"type": "manyToMany",
+	"next": "arn:aws:lambda:us-west-1:908344970015:function:parallel-pipeline-f1-async-http",
+	"invokeeReturnStore": {
+		"type": "dynamodb",
+		"table": "mapreduce-wordcount-fixedreducer-single-emit"
+	}
+}

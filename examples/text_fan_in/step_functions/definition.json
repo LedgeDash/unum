@@ -10,8 +10,13 @@
       "Next": "Cat",
 
       "Iterator": {
-        "StartAt": "Upper",
+        "StartAt": "Space",
         "States": {
+          "Space": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:us-west-1:908344970015:function:text-fan-in-space",
+            "Next": "Upper"
+          },
           "Upper": {
             "Type": "Task",
             "Resource": "arn:aws:lambda:us-west-1:908344970015:function:text-fan-in-upper",

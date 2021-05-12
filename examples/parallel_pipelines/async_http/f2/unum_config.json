@@ -1,0 +1,4 @@
+{
+	"type": "oneToOne",
+	"next": "arn:aws:lambda:us-west-1:908344970015:function:parallel-pipeline-f3-async-http"
+}
