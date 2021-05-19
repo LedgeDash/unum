@@ -83,6 +83,13 @@ test-small:
 	@cat out
 	@printf "\n"
 
+test-1:
+	aws lambda invoke --function-name $(unum_map-lambda) \
+	--invocation-type Event \
+	--payload fileb://1-test.json out
+	@cat out
+	@printf "\n"
+
 test-100:
 	aws lambda invoke --function-name $(unum_map-lambda) \
 	--invocation-type Event \

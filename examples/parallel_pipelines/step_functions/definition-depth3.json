@@ -1,0 +1,34 @@
+{
+  "Comment": "Parallel pipeline depth 3",
+  "StartAt": "Pipeline",
+  "States": {
+
+    "Pipeline": {
+      "Type": "Map",
+      "ItemsPath": "$.data",
+      "MaxConcurrency": 0,
+      "End": true,
+
+      "Iterator": {
+        "StartAt": "F1",
+        "States": {
+          "F1": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:us-west-1:746167823857:function:parallel-pipeline-f1-step-functions",
+            "Next": "F2"
+          },
+          "F2": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:us-west-1:746167823857:function:parallel-pipeline-f1-step-functions",
+            "Next": "F3"
+          },
+          "F3": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:us-west-1:746167823857:function:parallel-pipeline-f1-step-functions",
+            "End": true
+          }
+        }
+      }
+    }
+  }
+}

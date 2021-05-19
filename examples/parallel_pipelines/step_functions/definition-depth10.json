@@ -1,0 +1,69 @@
+{
+  "Comment": "Parallel pipeline depth 8",
+  "StartAt": "Pipeline",
+  "States": {
+
+    "Pipeline": {
+      "Type": "Map",
+      "ItemsPath": "$.data",
+      "MaxConcurrency": 0,
+      "End": true,
+
+      "Iterator": {
+        "StartAt": "F1",
+        "States": {
+          "F1": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:us-west-1:746167823857:function:parallel-pipeline-f1-step-functions",
+            "Next": "F2"
+          },
+          "F2": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:us-west-1:746167823857:function:parallel-pipeline-f1-step-functions",
+            "Next": "F3"
+          },
+          "F3": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:us-west-1:746167823857:function:parallel-pipeline-f1-step-functions",
+            "Next": "F4"
+          },
+          "F4": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:us-west-1:746167823857:function:parallel-pipeline-f1-step-functions",
+            "Next": "F5"
+          },
+          "F5": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:us-west-1:746167823857:function:parallel-pipeline-f1-step-functions",
+            "Next": "F6"
+          },
+          "F6": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:us-west-1:746167823857:function:parallel-pipeline-f1-step-functions",
+            "Next": "F7"
+          },
+          "F7": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:us-west-1:746167823857:function:parallel-pipeline-f1-step-functions",
+            "Next": "F8"
+          },
+          "F8": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:us-west-1:746167823857:function:parallel-pipeline-f1-step-functions",
+            "Next": "F9"
+          },
+          "F9": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:us-west-1:746167823857:function:parallel-pipeline-f1-step-functions",
+            "Next": "F10"
+          },
+          "F10": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:us-west-1:746167823857:function:parallel-pipeline-f1-step-functions",
+            "End": true
+          }
+        }
+      }
+    }
+  }
+}

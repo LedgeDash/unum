@@ -1,0 +1,8 @@
+{
+	"type": "manyToMany",
+	"next": "arn:aws:lambda:us-west-1:746167823857:function:parallel-pipeline-fchain-async-http",
+	"invokeeReturnStore": {
+		"type": "dynamodb",
+		"table": "unum_intermediary_table"
+	}
+}

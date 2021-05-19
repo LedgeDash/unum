@@ -106,6 +106,11 @@ test-app-small:
 	--state-machine-arn  $(step-functions-arn) \
 	--input file://../../../6Jokes-chunks-small.json
 
+test-app-100:
+	aws stepfunctions start-execution \
+	--state-machine-arn  $(step-functions-arn) \
+	--input file://../../../100Jokes-chunks-small.json
+
 test-app-large:
 	aws stepfunctions start-execution \
 	--state-machine-arn  $(step-functions-arn) \

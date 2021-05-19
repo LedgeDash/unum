@@ -1,0 +1,1 @@
+{"type": "chain", "next": "arn:aws:lambda:us-west-1:746167823857:function:parallel-pipeline-fchain-async-http", "depth": 1}

@@ -118,6 +118,13 @@ test-app-small:
 	@cat out
 	@printf "\n"
 
+test-app-100:
+	aws lambda invoke --function-name $(unummap-lambda) \
+	--invocation-type Event \
+	--payload fileb://../../../100Jokes-chunks-small.json out
+	@cat out
+	@printf "\n"
+
 test-app-large:
 	aws lambda invoke --function-name $(unummap-lambda) --payload fileb://../../../6Jokes-chunks-large.json out
 	@cat out
