@@ -1,0 +1,32 @@
+{
+  "Comment": "Create thumbnail and detect faces for an image in paralle",
+  "StartAt": "Parallel",
+  "States": {
+    "Parallel": {
+      "Type": "Parallel",
+      "End": true,
+      "Branches": [
+        {
+          "StartAt": "Thumbnail",
+          "States": {
+            "Thumbnail": {
+              "Type": "Task",
+              "Resource": "arn:aws:lambda:us-west-1:746167823857:function:image-process-ThumbnailFunction-ceYvWOoBvaab",
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "FaceDetection",
+          "States": {
+            "FaceDetection": {
+              "Type": "Task",
+              "Resource": "arn:aws:lambda:us-west-1:746167823857:function:image-process-FaceDetectionFunction-lt3j50wRfXub",
+                "End": true
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,10 @@
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "image-process"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-1p6wkdqwc2lfe"
+s3_prefix = "image-process"
+region = "us-west-1"
+capabilities = "CAPABILITY_IAM"
+image_repositories = ["ThumbnailFunction=746167823857.dkr.ecr.us-west-1.amazonaws.com/unum-lambdas-priv", "FaceDetectionFunction=746167823857.dkr.ecr.us-west-1.amazonaws.com/unum-lambdas-priv"]
