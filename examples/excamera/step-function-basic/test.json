@@ -1,0 +1,8 @@
+{
+	"chunks": [
+		{"bucket":"excamera-input", "file": "1.y4m"},
+		{"bucket":"excamera-input", "file": "2.y4m"},
+		{"bucket":"excamera-input", "file": "3.y4m"},
+		{"bucket":"excamera-input", "file": "4.y4m"}
+	]
+}
