@@ -1,9 +1,9 @@
 f1-lambda = parallel-pipeline-f1-step-functions
-f1-lambda-arn = arn:aws:lambda:us-west-1:746167823857:function:parallel-pipeline-f1-step-functions
+f1-lambda-arn = arn:aws:lambda:us-east-1:746167823857:function:parallel-pipeline-f1-step-functions
 lambda-role = arn:aws:iam::746167823857:role/lambda-ex
 
 step-functions-role = arn:aws:iam::746167823857:role/stepfunctions-ex
-step-functions-arn-prefix = arn:aws:states:us-west-1:746167823857:stateMachine:parallel-pipeline-depth
+step-functions-arn-prefix = arn:aws:states:us-east-1:746167823857:stateMachine:parallel-pipeline-depth
 
 MAX_DEPTH := 10
 NUMBERS := $(shell seq 1 ${MAX_DEPTH})
@@ -58,7 +58,7 @@ test-1:
 
 test-10:
 	aws stepfunctions start-execution \
-	--state-machine-arn  $(step-functions-arn) \
+	--state-machine-arn  $(addprefix $(step-functions-arn-prefix),1) \
 	--input file://10-test.json
 
 test-100:

@@ -8,7 +8,7 @@ import json
 import time
 from datetime import datetime
 
-MAX_WAIT_TIME = 200
+MAX_WAIT_TIME = 300
 WAIT_TIME_INCR = 5
 MAX_DEPTH = 10
 UNUM_MAP_ARN="arn:aws:lambda:us-west-1:746167823857:function:parallel-pipeline-unum_map-async-http"
@@ -75,16 +75,15 @@ def main():
 
     results = []
 
-    ITER = 10 # For a particular (depth, fanOutSize) setup, how many iterations of experiment we run
+    ITER = 1 # For a particular (depth, fanOutSize) setup, how many iterations of experiment we run
     for depth in range(1,2):
         print(f'depth: {depth}')
         updatefchainDepth(depth)
         time.sleep(1)
         depthResult = {"depth": depth, "results": []}
         # fanOutSizes = [i for i in range(0, 51, 2)] + [i for i in range(55, 101, 5)]
-        # fanOutSizes = [0,30]
-        fanOutSizes = [i for i in range(12,51, 2)] + [i for i in range(55, 101, 5)]
-        # fanOutSizes[0] = 1
+        fanOutSizes = [i for i in range(0, 21, 2)]
+        fanOutSizes[0] = 1
         fanOutSizes.reverse()
 
         for fanOutSize in fanOutSizes:

@@ -9,7 +9,7 @@ import time
 from datetime import datetime
 
 MAX_DEPTH = 10
-PARALLEL_PIPELINE_SF_PREFIX="arn:aws:states:us-west-1:746167823857:stateMachine:parallel-pipeline-depth"
+PARALLEL_PIPELINE_SF_PREFIX="arn:aws:states:us-east-1:746167823857:stateMachine:parallel-pipeline-depth"
 def createFanOutInputJson(fanOutSize):
 	payload=[{"text": "hello "} for i in range(fanOutSize)]
 	ret = {"data":payload}
@@ -76,11 +76,12 @@ def startParallelPipelineExecution(depth, fanOutSize):
 		if executionInfo["status"] == "FAILED":
 			ret["succeed"]=False
 			return ret
+			# break
 
 	startTimestamp = datetime.fromisoformat(executionInfo["startDate"])
 	stopTimestamp = datetime.fromisoformat(executionInfo["stopDate"])
 	delta = stopTimestamp - startTimestamp
-	e2eLatency = delta.seconds*1000+delta.microseconds/10000
+	e2eLatency = delta.seconds*1000+delta.microseconds/1000
 
 	ret["succeed"] = True
 	ret["e2eLatency"] = e2eLatency
@@ -94,7 +95,7 @@ def main():
 	# time.sleep(2)
 	# print(f'Second warm: {startParallelPipelineExecution(1,1000)}')
 
-	ITER = 10 # For a particular (depth, fanOutSize) setup, how many iterations of experiment we run
+	ITER = 2 # For a particular (depth, fanOutSize) setup, how many iterations of experiment we run
 	results = []
 
 	for depth in range(10,11):
@@ -103,7 +104,10 @@ def main():
 		# print(f'pipeline depth: {depth}')
 
 		# fanOutSizes = [i for i in range(0, 51, 2)] + [i for i in range(55, 101, 5)]+ [i for i in range(150, 1001, 50)]
-		fanOutSizes = [i for i in range(0, 51, 2)] + [i for i in range(55, 101, 5)]
+		# fanOutSizes = [i for i in range(0, 51, 2)] + [i for i in range(55, 101, 5)]
+		fanOutSizes = [i for i in range(0, 51, 2)]
+		# fanOutSizes = [i for i in range(42, 51, 2)]
+		# fanOutSizes = [i for i in range(100, 501, 50)]
 		fanOutSizes[0] = 1
 
 		fanOutSizes.reverse()
@@ -114,10 +118,10 @@ def main():
 			for e in range(0, ITER):
 				ret = startParallelPipelineExecution(depth,fanOutSize)
 				fanOutSizeResult["results"].append(ret)
-				time.sleep(1)
+				time.sleep(5)
 
 			depthResult["results"].append(fanOutSizeResult)
-			time.sleep(2)
+			time.sleep(10)
 
 		results.append(depthResult)
 

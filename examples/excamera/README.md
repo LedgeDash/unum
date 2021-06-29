@@ -67,18 +67,28 @@ In the command list, there are 4 commands:
 
 
 
+# Testing
+
+Need the alfalfa repo.
+
+```bash
+apt install yasm x264 libx264-dev libjpeg9-dev freeglut3-dev libglfw3-dev libglfw3-dev libglew-dev libboost-all-dev
+```
+
+The command to concatenate ivf files:
+
+```bash
+ls *.ivf | ./alfalfa/src/frontend/xc-decode-bundle > video.ivf
+```
 
 
 
+# Input
 
+We have 2 options:
 
-
-# Questions
-
-There's an `excamera-static-bins` repo with binaries. Is there a repo with the
-binaries' source?
-
-
+1. An array of S3 pointers
+2. Use S3 ObjectCreated event
 
 
 

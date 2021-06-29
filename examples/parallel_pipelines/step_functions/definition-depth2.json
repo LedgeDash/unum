@@ -14,12 +14,12 @@
         "States": {
           "F1": {
             "Type": "Task",
-            "Resource": "arn:aws:lambda:us-west-1:746167823857:function:parallel-pipeline-f1-step-functions",
+            "Resource": "arn:aws:lambda:us-east-1:746167823857:function:parallel-pipeline-f1-step-functions",
             "Next": "F2"
           },
           "F2": {
             "Type": "Task",
-            "Resource": "arn:aws:lambda:us-west-1:746167823857:function:parallel-pipeline-f1-step-functions",
+            "Resource": "arn:aws:lambda:us-east-1:746167823857:function:parallel-pipeline-f1-step-functions",
             "End": true
           }
         }
