@@ -55,15 +55,37 @@ An unum application consists of a set of unum functions. Each unum function is
 a directory with the following files:
 
 ```
-myfunction
+myfunction/
  |- app.py
  |- requirements.txt
  |- unum_config.json
  |- __init__.py
 ```
 
-An unum application is a directory containing a set of unum functions and an
-`unum_template.yaml` file.
+An unum application is a directory containing a set of unum functions, an unum
+template and the unum runtime. In the following `hello-world-app` example, we
+have 2 functions, `hello` and `world`, each in its own directory. The `common`
+directory contains the unum runtime for Python applications. The
+`unum-template.yaml` is the unum application template.
+
+```
+hello-world-app/
+ |- hello/
+     |- app.py
+	 |- requirements.txt
+	 |- unum_config.json
+	 |- __init__.py
+ |- world/
+     |- app.py
+	 |- requirements.txt
+	 |- unum_config.json
+	 |- __init__.py
+ |- common/
+ |- unum-template.yaml
+ |- __init__.py
+```
+
+See unum application examples in [unum-appstore](https://github.com/LedgeDash/unum-appstore).
 
 ## unum Application Template
 
