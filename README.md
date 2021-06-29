@@ -103,10 +103,13 @@ template](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/templat
 unum-cli template -p aws
 ```
 
+See [unum Application Template
+Anatomy](https://github.com/LedgeDash/unum-compiler/blob/main/docs/template.md)
+for more details.
 
 # unum Configurations
 
-```json
+```
 {
     "Next": "next function's name" | [<function names>],
     "WaitFor": "Map" | [<function names>] ,
