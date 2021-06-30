@@ -149,7 +149,9 @@ action based on the unum configuration. Each individual unum function carries
 out its share of orchestration actions without deligating back to a
 centralized coordinator service.
 
-See [unum Configuration Language]() for more details.
+See [unum Configuration
+Language](https://github.com/LedgeDash/unum-compiler/blob/main/docs/configuration-language.md)
+for more details.
 
 # unum Runtime
 
