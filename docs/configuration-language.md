@@ -39,11 +39,27 @@ function(s) I should wait for before invoking the next function.
 * `Map`
 * `[function names]`
 * Simple programming such as `$MyIndex`.
+TODO
+
+
+|  | Scalar | Map |
+|-|-|-|
+| F1 | invoke F1 with user function's return value | User function return a list. Invoke an instance of F1 for each element of the list |
+| [F1, F2] | invoke both F1 and F2 with user function's return value | User function return a list. Invoke an instance of F1 and an instance of F2 for each element of the list |
+
 
 ## Patterns
 
 The unum configuration can express common orchestration patterns such as
 chaining, fan-out and fan-in.
+
+
+Mapping between unum configuration and Step Functions states
+
+|  | Scalar | Map |
+|-|-|-|
+| F1 | Chain | Map |
+| [F1, F2] | Parallel | Parallel with 2 branches. Each branch being a Map. |
 
 
 ### Cases Beyond Step Functions
