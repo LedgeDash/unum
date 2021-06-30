@@ -1,5 +1,19 @@
 unum is a system for building and running stateful FaaS applications.
 
+<!-- Traditionally, stateful FaaS applications are built on platform-specific
+coordinators (e.g., Step Functions, Durable Functions Orchestration).
+Coordinators are long-running stateful processes that are independent of the
+FaaS system where functions execute. Programmers write workflows in the
+language of the particular coordinator (e.g., [Amazon States
+Language](https://states-language.net/) for AWS Step Functions), and the
+workflow code is executed by the provider's custom-made coordinator system.
+The system launches a coordinator process for each invocation of an
+application, and the process runs until the entire workflow completes.
+
+Coordinators centralize the orchestration logic and make all the orchestration
+decisions. All FaaS functions are launched by the coordinator and all
+functions' outputs are first sent back to the coordinator. -->
+
 # Getting Started
 
 Run the `setup.sh` script to install the `unum-cli` and its dependencies.
@@ -52,15 +66,25 @@ application directory.
 # unum Applications and Funtions
 
 An unum application consists of a set of unum functions. Each unum function is
-a directory with the following files:
+a directory with an unum configuration file (`unum_config.json`), the user
+function and its dependencies.
+
+The following is an example Python unum function:
 
 ```
 myfunction/
  |- app.py
+ |- mylibrary.py
  |- requirements.txt
  |- unum_config.json
  |- __init__.py
 ```
+
+`app.py` is the user function. It is written exactly like a normal Lambda
+function. `mylibrary.py` is the user library code. `requirements.txt` lists
+other Python packages that the function depends on and will be installed via
+`pip`. `unum_config.json` is the unum configuration for this particular
+function.
 
 An unum application is a directory containing a set of unum functions, an unum
 template and the unum runtime. In the following `hello-world-app` example, we
@@ -109,65 +133,34 @@ for more details.
 
 # unum Configurations
 
-```
-{
-    "Next": "next function's name" | [<function names>],
-    "WaitFor": "Map" | [<function names>] ,
-    "NextInput": "Scalar" | "Map" | "Fan-in"  
-}
-```
+Each unum function has an unum configuration file (`unum_config.json`). The
+unum runtime uses unum configs to decide what orchestration actions to take
+after user functions complete, that is whether to invoke a function, which
+function(s) to invoke, and with what input data.
 
+A unum configuration specifies the following information:
 
+* which function or functions to invoke next
+* how to process the user function's output
+* which function or functions to wait for before invoking the next function
+
+After the user function returns, the unum runtime executes the orchestration
+action based on the unum configuration. Each individual unum function carries
+out its share of orchestration actions without deligating back to a
+centralized coordinator service.
+
+See [unum Configuration Language]() for more details.
 
 # unum Runtime
 
+The unum runtime executes orchestration actions based on the unum
+configuration and user function's output.
 
-Cases beyond Step Functions:
-
-Fan-in to multiple next functions. Step function always fan in to a single node.
-
-Map user function's output + waitfor/fan-in with another function
-
-Invalid combination: NextInput: scalar, Waitfor:map.
-
-## Node Types
-
-### ChainNode
-
-Invoke a single next function with the user function's output as a scalar.
-
-"Next": single function
-"WaitFor": None
-"NextInput": Scalar
-
-### EndNode
-
-Simply exit after the user function returns. There's no subsequent functions to invoke.
-
-"Next": None
-"WaitFor": None
-"NextInput": None
-
-### MapNode
-
-The user function has to return a list.
-
-For each element of the list invoke an instance of the next function.
-
-"Next": single function or a list of functions
-"WaitFor": None
-"NextInput": Map
+## Runtime Metadata
 
 
-### FanInNode
 
-Write the user function's output to the return value store specified in the `UnumMetadata` field of the input `event`.
-
-If the "Next" field is non-empty, wait for other fan-out functions to complete before invoking the next function.
-
-If the "Next" field is empty, ignore waiting for other fan-out functions and simply exit after writing the output to the return value store.
-
-## ingress
+### ingress
 
 ```json
 {
@@ -231,12 +224,12 @@ If the "Next" field is empty, ignore waiting for other fan-out functions and sim
 }
 ```
 
-### S3 event
+<!-- ### S3 event
 
 Automatically downloads the file to function's local storage (can parallelize
-with function execution) and pass it as a file descriptor to the function.
+with function execution) and pass it as a file descriptor to the function. -->
 
-### JSON
+<!-- ### JSON
 
 If ingress receives a JSON string
 
@@ -264,3 +257,4 @@ def handle(foo, bar):
 
 Ingress runtime will pass 1 to `foo` and 2 to `bar`.
 
+ -->
