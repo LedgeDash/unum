@@ -48,7 +48,7 @@ def ingress(event, context):
         to read all fileds from the directory and return an ordered list.
     '''
     if "Data" not in event:
-        raise IOError(f'No Data field found in event')
+        raise IOError(f'No "Data" field found in event')
 
     data = event["Data"]
     val = data["Value"]
@@ -91,8 +91,8 @@ def ingress(event, context):
     #     raise IOError(f'Unknown input data source: {data["Source"]}')
 
 def egress(user_function_output, event, context):
-    # Write user_function_output to storage if I need to fan-in or need to checkpoint the output
-    # write location is given in event["UnumMetadata"].
+    # Write user_function_output to storage if I need to fan-in or need to
+    # checkpoint the output write location is given in event["UnumMetadata"].
     # TODO
 
     # If there's a next function to invoke, invoke it. Otherwise simply return
