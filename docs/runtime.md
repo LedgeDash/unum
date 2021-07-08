@@ -16,7 +16,11 @@ unum uses its own input data format in JSON.
 
 To invoke an unum workflow, invoke the entry function of the workflow. Each workflow can only have one entry function. The entry function is specified in the `unum-template.yaml` file when defining a workflow and its `unum_config.json` also has a special field (`"Start"`).
 
-The entry function will create a session context in the intermediary data store for each workflow *invocation*.
+The entry function will create a session context in the intermediary data store for each workflow *invocation*. Any subsequent functions of the workflow in that invocation that need to store their return values will write to this context. The purpose of the session context is to distinguish outputs by the same function from different invocations.
+
+The implementation of context depends on the data store. For example, if the intermediary data store is s3, this means the entry function will create an unique s3 prefix every time it is invoked. Subsequent functions write their return values to this prefix. For more details, see the [Intermediary Data Store section](#IntermediaryDataStore).
+
+*Session context is created lazily*. For workflows whose functions never need to store their return values, a session context is never actually created. For example, if the intermediary data store is s3, this means that the unique prefix is never created in the bucket.
 
 ## Entry Function from Step Functions
 
@@ -77,7 +81,7 @@ s3 | dynamodb | redis |
 
 ### User invocation of the entry function
 
-It's up to the user how to pass data to the entry function. It can be any of the supported
+It's up to the user how to pass data to the entry function. It can be any of the supported sources.
 
 
 
@@ -90,4 +94,12 @@ Storage triggers have very specific event format. unum does not need to deal wit
 ### Difference from workflow composition with storage triggers
 
 No more tying the invokee's input to a specific storage event format. 
+
+
+
+# Intermediary Data Store
+
+unum can use any addressable/indexable data stores, that is you can read and write individual items by their names. This includes blob storages, KV stores, file systems.
+
+Example of services that cannot work as unum intermediary data store are pub/sub messaging services, queues.
 
