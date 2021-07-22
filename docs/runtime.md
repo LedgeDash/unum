@@ -39,7 +39,7 @@ Output: Any Python object that's JSON-serializable (by the default Python `json`
 
 Empty unum input:
 
-```json
+```
 {
 	"Data": {
 		"Source": "http",
@@ -51,7 +51,7 @@ Empty unum input:
 
 unum input with S3 as intermediary data store:
 
-```json
+```
 "Data": {
 	"Source":"s3",
 	"Value": {
@@ -113,7 +113,7 @@ Example of services that cannot work as unum intermediary data store are pub/sub
 
 Every unum function is invoked with a JSON input of the following structure:
 
-```json
+```
 {
     "Data": {
         "Source": "http | s3 ",
@@ -237,7 +237,7 @@ To start an unum workflow, clients invoke the entry function.
 
 Inputs to entry functions need to be sent via HTTP. `Value` can be any valid JSON objects and it is passed as is to to the user function. The unum runtime does not inspect or interpret the `Value` field content. For instance,
 
-```json
+```
 {
     "Data": {
         "Source": "http",
@@ -246,7 +246,7 @@ Inputs to entry functions need to be sent via HTTP. `Value` can be any valid JSO
 }
 ```
 
-```json
+```
 {
     "Data": {
         "Source": "http",
@@ -260,7 +260,7 @@ Inputs to entry functions need to be sent via HTTP. `Value` can be any valid JSO
 }
 ```
 
-```json
+```
 {
     "Data": {
         "Source": "http",
@@ -271,7 +271,7 @@ Inputs to entry functions need to be sent via HTTP. `Value` can be any valid JSO
 
 It is possible to pass pointers to data stores. For example,
 
-```json
+```
 {
     "Data": {
         "Source": "http",
@@ -295,7 +295,7 @@ An example chain workflow with two functions, A, B and C.
 
 Function A can invoke B with input of the following content
 
-```json
+```
 {
     "Data": {
         "Source": "http",
@@ -318,7 +318,7 @@ For a chain of functions, inputs are always passed via HTTP.
 
 `Session` is propagated to all downstream functions. When B invokes C, B will pass the `Session` field as is to C:
 
-```json
+```
 {
     "Data": {
         "Source": "http",
@@ -338,7 +338,7 @@ An example of parallel fan-out and fan-in.
 
 A's `unum-config.json`:
 
-```json
+```
 {
     "Next": ["B", "C","D"],
     "NextInput": "Scalar",
@@ -348,7 +348,7 @@ A's `unum-config.json`:
 
 A's input to B,
 
-```json
+```
 {
     "Data": {
         "Source": "http",
@@ -368,7 +368,7 @@ A's input to B,
 
 A's input to C,
 
-```json
+```
 {
     "Data": {
         "Source": "http",
@@ -388,7 +388,7 @@ A's input to C,
 
 A's input to D,
 
-```json
+```
 {
     "Data": {
         "Source": "http",
@@ -410,7 +410,7 @@ If B ends up being the function that invokes E.
 
 B's `unum-config.json`:
 
-```json
+```
 {
     "Next": "E",
     "NextInput": {
@@ -427,7 +427,7 @@ B's `unum-config.json`:
 
 B's input to E,
 
-```json
+```
 {
     "Data": {
         "Source": "s3",
@@ -450,7 +450,7 @@ Note that E will inherit B's `Fan-out` field.
 
 E's `unum-config.json`
 
-```json
+```
 {
     "Next": "F"
     "NextInput": "Scalar"
@@ -460,7 +460,7 @@ E's `unum-config.json`
 
 `Fan-out Cancel : True` will instruct the runtime to pop the top-level `Fan-out` field. Therefore, E's input to F is
 
-```json
+```
 {
     "Data": {
         "Source": "http",
@@ -480,7 +480,7 @@ An example of Map fan-out and fan-in
 
 F's `unum-config.json`
 
-```json
+```
 {
     "Next": "G",
     "NextInput": "Map",
@@ -492,7 +492,7 @@ F's user function is expected to return an array. For each element of the array,
 
 Let's say that F's user function returns an array of length 20, then F's input to the $i^{th}$ G instance look like,
 
-```json
+```
 {
     "Data": {
         "Source": "http",
@@ -509,7 +509,7 @@ Let's say that F's user function returns an array of length 20, then F's input t
 
 G's `unum-config.json`
 
-```json
+```
 {
     "Next": "H",
     "NextInput": {
@@ -530,7 +530,7 @@ The `*` in the `Values` field is a glob pattern that represents all of the G ins
 
 If the $i^{th}$ G instance ends up invoking H, it will send the following input to H,
 
-```json
+```
 {
     "Data": {
         "Source": "s3",
@@ -549,7 +549,7 @@ If the $i^{th}$ G instance ends up invoking H, it will send the following input 
 
 We can *statically control* which G would perform the fan-in with the `Conditional` field in `Next`. For instance, if we want the last G instance in the fan-out to invoke H, then G's `unum-config.json` can be written as:
 
-```json
+```
 {
     "Next": {
         "Function": "H",
@@ -569,7 +569,7 @@ See more details in [the unum Configuration Language]()
 
 H's `unum-config.json`
 
-```json
+```
 {
     "Next": "M"
     "NextInput": "Scalar"
@@ -579,7 +579,7 @@ H's `unum-config.json`
 
 H's input to M,
 
-```json
+```
 {
     "Data": {
         "Source": "http",
@@ -601,7 +601,7 @@ The branches of a parallel fan-out can be chains of functions. In the example ab
 
 A's `unum-config.json` remains the same as the previous example as unum configuration only specifies orchestration actions about the immediate next step, which is local to the function.
 
-```json
+```
 {
     "Next": ["B", "C","D"],
     "NextInput": "Scalar",
@@ -613,7 +613,7 @@ A's inputs to B, C, and D are also structurally identical to the previous exampl
 
 A's input to B,
 
-```json
+```
 {
     "Data": {
         "Source": "http",
@@ -633,7 +633,7 @@ A's input to B,
 
 A's input to C,
 
-```json
+```
 {
     "Data": {
         "Source": "http",
@@ -653,7 +653,7 @@ A's input to C,
 
 A's input to D,
 
-```json
+```
 {
     "Data": {
         "Source": "http",
@@ -673,7 +673,7 @@ A's input to D,
 
 B's `unum-config.json`
 
-```json
+```
 {
     "Next": "E",
     "NextInput": "Scalar"
@@ -682,7 +682,7 @@ B's `unum-config.json`
 
 B's input to E will propagate the `Fan-out` field so that E knows that it is in the first branch of a parallel fan-out.
 
-```json
+```
 {
     "Data": {
         "Source": "http",
@@ -705,7 +705,7 @@ If G ends up performing the fan-in to H,
 
 G's `unum-config.json`,
 
-```json
+```
 {
     "Next" : "H",
     "NextInput" : {
@@ -724,7 +724,7 @@ Again, because parallel fan-out are statically defined, we can know a priori the
 
 G's input to H,
 
-```json
+```
 {
     "Data": {
         "Source": "s3",
@@ -753,7 +753,7 @@ Branches can share the same function as long as the configuration is the same. I
 
 B, C and D will have the same `unum-config.json`:
 
-```json
+```
 {
     "Next": "E",
     "NextInput": "Scalar"
@@ -764,7 +764,7 @@ Their input to E will obviously differ in the `Value` as well as in the fan-out 
 
 There are a couple of way of specifying E's `unum-config.json`. Because parallel fan-outs are statically defined, we can know a priori the number of Es and their indexes. We can therefore list the values explicitly in the `unum-config.json`.
 
-```json
+```
 {
     "Next" : "H",
     "NextInput" : {
@@ -781,7 +781,7 @@ There are a couple of way of specifying E's `unum-config.json`. Because parallel
 
 If the last E ends up invoking H, then H's input will be,
 
-```json
+```
 {
     "Data": {
         "Source": "s3",
@@ -802,7 +802,7 @@ If the last E ends up invoking H, then H's input will be,
 
 Alternatively, we can use a glob pattern with `*` and the runtime will look at the `Size` field to figure out the total number of E's results to wait for.
 
-```json
+```
 {
     "Next" : "H",
     "NextInput" : {
@@ -817,7 +817,7 @@ Alternatively, we can use a glob pattern with `*` and the runtime will look at t
 
 H's input,
 
-```json
+```
 {
     "Data": {
         "Source": "s3",
@@ -842,7 +842,7 @@ The length of the chains doesn't have to be the same either.
 
 D's `unum-config.json`
 
-```json
+```
 {
     "Next" : "H",
     "NextInput" : {
@@ -861,7 +861,7 @@ D's `unum-config.json`
 
 E's `unum-config.json`
 
-```json
+```
 {
     "Next" : "H",
     "NextInput" : {
@@ -878,7 +878,7 @@ E's `unum-config.json`
 
 D's input to H
 
-```json
+```
 {
     "Data": {
         "Source": "s3",
@@ -901,11 +901,502 @@ D's input to H
 
 ### Map fan-out to chains of functions + fan-in
 
+![runtime-io-example-map-chains](D:\Dropbox (Princeton)\Dev\unum-compiler\docs\assets\runtime-io-example-map-chains.jpg)
 
+While branches of parallel fan-outs can consist of distinctive functions, iterations of a map fan-out are identically defined. In this example, the G function has the following `unum-config.json`,
+
+```
+{
+    "Next": "H",
+    "NextInput": "Scalar"
+}
+```
+
+and H has the following `unum-config.json`,
+
+```
+{
+    "Next": "M",
+    "NextInput": {
+        "Fan-in": {
+            "Values" : [
+               "H-Index-*-output.json"
+            ]
+        }
+    }
+}
+```
+
+G functions will propagate the `Fan-out` field to H instances. For example, the ith G instance will invoke an H function with the following input
+
+```
+{
+    "Data": {
+        "Source": "http",
+        "Value": "Gi's result"
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
+	"Fan-out": {
+        "Type": "Map",
+        "Index": i,
+        "Size": 20,
+    }
+}
+```
 
 
 
 ### Nested Parallel fan-out + fan-in
+
+![runtime-io-example-nestedparallel-unique](D:\Dropbox (Princeton)\Dev\unum-compiler\docs\assets\runtime-io-example-nestedparallel-unique.jpg)
+
+unum supports nested fan-outs. 
+
+A's `unum-config.json`
+
+```
+{
+    "Next": ["B", "C"],
+    "NextInput": "Scalar",
+    "Start": True
+}
+```
+
+```
+{
+    "Data": {
+        "Source": "http | s3 ",
+        "Value": {}
+        
+    }
+    "Session": {"an ID passed to the intermediary data store"},
+	"Fan-out": {
+        "Type": "Map | Parallel",
+        "Index": 1,
+        "Size": 3,
+        "Outerloop": {
+            "Type": "Map | Parallel",
+            "Index": 2,
+            "Size": 5
+        }
+    }
+	"Modifiers" : {
+        "Invoke": "One-off | One-off-client | Downstream",
+    }
+}
+```
+
+
+
+A's input to B
+
+```
+{
+    "Data": {
+        "Source": "http",
+        "Value": "A's result"
+        
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
+	"Fan-out": {
+        "Type": "Parallel",
+        "Index": 0,
+        "Size": 2,
+    }
+}
+```
+
+
+
+A's input to C
+
+```
+{
+    "Data": {
+        "Source": "http",
+        "Value": "A's result"
+        
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
+	"Fan-out": {
+        "Type": "Parallel",
+        "Index": 1,
+        "Size": 2,
+    }
+}
+```
+
+
+
+B's `unum-config.json`
+
+```
+{
+    "Next": ["D", "E"],
+    "NextInput": "Scalar"
+}
+```
+
+B's input to D
+
+```
+{
+    "Data": {
+        "Source": "http",
+        "Value": "B's result"
+        
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
+	"Fan-out": {
+        "Type": "Parallel",
+        "Index": 0,
+        "Size": 2,
+        "Outerloop": {
+            "Type": "Parallel",
+            "Index": 0,
+            "Size": 2
+        }
+    }
+}
+```
+
+
+
+B's input to E
+
+```
+{
+    "Data": {
+        "Source": "http",
+        "Value": "B's result"
+        
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
+	"Fan-out": {
+        "Type": "Parallel",
+        "Index": 1,
+        "Size": 2,
+        "Outerloop": {
+            "Type": "Parallel",
+            "Index": 0,
+            "Size": 2
+        }
+    }
+}
+```
+
+
+
+C's `unum-config.json`
+
+```
+{
+    "Next": ["F", "G"],
+    "NextInput": "Scalar"
+}
+```
+
+C's input to F
+
+```
+{
+    "Data": {
+        "Source": "http",
+        "Value": "C's result"
+        
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
+	"Fan-out": {
+        "Type": "Parallel",
+        "Index": 0,
+        "Size": 2,
+        "Outerloop": {
+            "Type": "Parallel",
+            "Index": 1,
+            "Size": 2
+        }
+    }
+}
+```
+
+
+
+C's input to G
+
+```
+{
+    "Data": {
+        "Source": "http",
+        "Value": "C's result"
+        
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
+	"Fan-out": {
+        "Type": "Parallel",
+        "Index": 1,
+        "Size": 2,
+        "Outerloop": {
+            "Type": "Parallel",
+            "Index": 1,
+            "Size": 2
+        }
+    }
+}
+```
+
+
+
+E's `unum-config.json`
+
+```
+{
+    "Next": "H",
+    "NextInput": {
+        "Fan-in": {
+            "Values" : [
+               "D-Index-0.0-output.json",
+               "E-Index-0.1-output.json"
+            ]
+        }
+    }
+}
+```
+
+Alternatively,
+
+```
+{
+    "Next": "H",
+    "NextInput": {
+        "Fan-in": {
+            "Values" : [
+               "D-Index-$1.0-output.json",
+               "E-Index-$1.1-output.json"
+            ]
+        }
+    }
+}
+```
+
+E's input to H
+
+```
+{
+    "Data": {
+        "Source": "s3",
+        "Value": [
+        	"D-Index-0.0-output.json",
+        	"E-Index-0.1-output.json"
+        ] 
+        
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
+	"Fan-out": {
+        "Type": "Parallel",
+        "Index": 1,
+        "Size": 2,
+        "Outerloop": {
+            "Type": "Parallel",
+            "Index": 0,
+            "Size": 2
+        }
+    }
+}
+```
+
+Alternatively,
+
+```
+{
+    "Data": {
+        "Source": "s3",
+        "Value": [
+        	"D-Index-$1.0-output.json",
+        	"E-Index-$1.1-output.json"
+        ] 
+        
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
+	"Fan-out": {
+        "Type": "Parallel",
+        "Index": 1,
+        "Size": 2,
+        "Outerloop": {
+            "Type": "Parallel",
+            "Index": 0,
+            "Size": 2
+        }
+    }
+}
+```
+
+The unum runtime will expand $1 to 0 based on the `Outerloop[Size]` value.
+
+H's `unum-config.json`
+
+```
+{
+    "Next": "J"
+    "NextInput": {
+    	"Fan-in" : {
+    		"Value" : [
+    			"H-Index-0-output.json",
+    			"I-Index-1-output.json"
+    		]
+    	}
+    },
+    "Fan-out Cancel" : True
+}
+```
+
+H's input to J
+
+```
+{
+    "Data": {
+        "Source": "s3",
+        "Value": [
+        	"H-Index-0-output.json",
+        	"I-Index-1-output.json"
+        ] 
+        
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
+	"Fan-out": {
+        "Type": "Parallel",
+        "Index": 0,
+        "Size": 2
+    }
+}
+```
+
+The unum runtime pop off the top-level `Fan-out` field and replace it with the previous `OuterLoop` field.
+
+![nested-parallel-same](D:\Dropbox (Princeton)\Dev\unum-compiler\docs\assets\nested-parallel-same.jpg)
+
+In the previous example, all functions are uniquely named. It is possible for nested branches to use the same function. In the above example, both B and C fan-out to D and E function which in turn fan-in to function F and then G.
+
+D's `unum-config.json`
+
+```
+{
+    "Next": "F"
+    "NextInput": {
+    	"Fan-in" : {
+    		"Value" : [
+    			"D-Index-$1.0-output.json",
+    			"E-Index-$1.1-output.json"
+    		]
+    	}
+    }
+}
+```
+
+F's `unum-config.json`
+
+```
+{
+    "Next": "G"
+    "NextInput": {
+    	"Fan-in" : {
+    		"Value" : [
+    			"F-Index-0-output.json",
+    			"F-Index-1-output.json"
+    		]
+    	}
+    },
+    "Fan-out Cancel" : True
+}
+```
+
+B's input to D
+
+```
+{
+    "Data": {
+        "Source": "http",
+        "Value": "B's result"
+        
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
+	"Fan-out": {
+        "Type": "Parallel",
+        "Index": 0,
+        "Size": 2,
+        "Outerloop": {
+            "Type": "Parallel",
+            "Index": 0,
+            "Size": 2
+        }
+    }
+}
+```
+
+
+
+Blue D's input to F
+
+```
+{
+    "Data": {
+        "Source": "s3",
+        "Value": [
+    			"D-Index-$1.0-output.json",
+    			"E-Index-$1.1-output.json"
+    		]
+        
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
+	"Fan-out": {
+        "Type": "Parallel",
+        "Index": 0,
+        "Size": 2,
+        "Outerloop": {
+            "Type": "Parallel",
+            "Index": 0,
+            "Size": 2
+        }
+    }
+}
+```
+
+The unum runtime on F will expand `$1` to 0.
+
+Orange D's input to F
+
+```
+{
+    "Data": {
+        "Source": "s3",
+        "Value": [
+    			"D-Index-$1.0-output.json",
+    			"E-Index-$1.1-output.json"
+    		]
+        
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
+	"Fan-out": {
+        "Type": "Parallel",
+        "Index": 0,
+        "Size": 2,
+        "Outerloop": {
+            "Type": "Parallel",
+            "Index": 1,
+            "Size": 2
+        }
+    }
+}
+```
+
+The unum runtime on F will expand `$1` to 1.
+
+Note that the following is invalid unum workflow because the blue D and E fan-in to function H which makes them different functions from the orange D and E and should thus be named differently.
+
+![nested-parallel-incorrect](D:\Dropbox (Princeton)\Dev\unum-compiler\docs\assets\nested-parallel-incorrect.jpg)
+
+
+
+
 
 ### Nested Map fan-out + fan-in
 
