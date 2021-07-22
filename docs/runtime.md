@@ -332,7 +332,7 @@ For a chain of functions, inputs are always passed via HTTP.
 
 ### Parallel fan-out + fan-in
 
-![runtime-io-example-parallel](D:\Dropbox (Princeton)\Dev\unum-compiler\docs\assets\runtime-io-example-parallel.jpg)
+![runtime-io-example-parallel](https://raw.githubusercontent.com/LedgeDash/unum-compiler/main/docs/assets/runtime-io-example-parallel.jpg)
 
 An example of parallel fan-out and fan-in.
 
@@ -474,7 +474,7 @@ E's `unum-config.json`
 
 ### Map fan-out of F -> [G]->H->M + fan-in
 
-![runtime-io-example-map](D:\Dropbox (Princeton)\Dev\unum-compiler\docs\assets\runtime-io-example-map.jpg)
+![runtime-io-example-map](https://raw.githubusercontent.com/LedgeDash/unum-compiler/main/docs/assets/runtime-io-example-map.jpg)
 
 An example of Map fan-out and fan-in
 
@@ -595,7 +595,7 @@ The `Fan-out` field is removed.
 
 ### Parallel fan-out to chains of functions + fan-in
 
-![runtime-io-example-parallel-chain-diff](D:\Dropbox (Princeton)\Dev\unum-compiler\docs\assets\runtime-io-example-parallel-chain-diff.jpg)
+![runtime-io-example-parallel-chain-diff](https://raw.githubusercontent.com/LedgeDash/unum-compiler/main/docs/assets/runtime-io-example-parallel-chain-diff.jpg)
 
 The branches of a parallel fan-out can be chains of functions. In the example above, we build on top of [the previous parallel fan-out example](#Parallel fan-out + fan-in) and add an additional function to each branch to form three chains.
 
@@ -747,7 +747,7 @@ Similarly, H will pop the `Fan-out` field before invoking I.
 
 
 
-![runtime-io-example-parallel-chain-diff](D:\Dropbox (Princeton)\Dev\unum-compiler\docs\assets\runtime-io-example-parallel-chain-same.jpg)
+![runtime-io-example-parallel-chain-diff](https://raw.githubusercontent.com/LedgeDash/unum-compiler/main/docs/assets/runtime-io-example-parallel-chain-same.jpg)
 
 Branches can share the same function as long as the configuration is the same. In the example above, B, C, and D all invoke the same E function as the second stage of their respective chain.
 
@@ -836,7 +836,7 @@ H's input,
 
 As mentioned, the runtime on H will use the `Size: 3` to figure out the total number of `E-Index-*-output.json` that it needs to read.
 
-![runtime-io-example-parallel-chain-diff-length](D:\Dropbox (Princeton)\Dev\unum-compiler\docs\assets\runtime-io-example-parallel-chain-diff-length.jpg)
+![runtime-io-example-parallel-chain-diff-length](https://raw.githubusercontent.com/LedgeDash/unum-compiler/main/docs/assets/runtime-io-example-parallel-chain-diff-length.jpg)
 
 The length of the chains doesn't have to be the same either.
 
@@ -901,7 +901,7 @@ D's input to H
 
 ### Map fan-out to chains of functions + fan-in
 
-![runtime-io-example-map-chains](D:\Dropbox (Princeton)\Dev\unum-compiler\docs\assets\runtime-io-example-map-chains.jpg)
+![runtime-io-example-map-chains](https://raw.githubusercontent.com/LedgeDash/unum-compiler/main/docs/assets/runtime-io-example-map-chains.jpg)
 
 While branches of parallel fan-outs can consist of distinctive functions, iterations of a map fan-out are identically defined. In this example, the G function has the following `unum-config.json`,
 
@@ -948,7 +948,7 @@ G functions will propagate the `Fan-out` field to H instances. For example, the 
 
 ### Nested Parallel fan-out + fan-in
 
-![runtime-io-example-nestedparallel-unique](D:\Dropbox (Princeton)\Dev\unum-compiler\docs\assets\runtime-io-example-nestedparallel-unique.jpg)
+![runtime-io-example-nestedparallel-unique](https://raw.githubusercontent.com/LedgeDash/unum-compiler/main/docs/assets/runtime-io-example-nestedparallel-unique.jpg)
 
 unum supports nested fan-outs. 
 
@@ -1272,7 +1272,7 @@ H's input to J
 
 The unum runtime pop off the top-level `Fan-out` field and replace it with the previous `OuterLoop` field.
 
-![nested-parallel-same](D:\Dropbox (Princeton)\Dev\unum-compiler\docs\assets\nested-parallel-same.jpg)
+![nested-parallel-same](https://raw.githubusercontent.com/LedgeDash/unum-compiler/main/docs/assets/nested-parallel-same.jpg)
 
 In the previous example, all functions are uniquely named. It is possible for nested branches to use the same function. In the above example, both B and C fan-out to D and E function which in turn fan-in to function F and then G.
 
@@ -1392,7 +1392,7 @@ The unum runtime on F will expand `$1` to 1.
 
 Note that the following is invalid unum workflow because the blue D and E fan-in to function H which makes them different functions from the orange D and E and should thus be named differently.
 
-![nested-parallel-incorrect](D:\Dropbox (Princeton)\Dev\unum-compiler\docs\assets\nested-parallel-incorrect.jpg)
+![nested-parallel-incorrect](https://raw.githubusercontent.com/LedgeDash/unum-compiler/main/docs/assets/nested-parallel-incorrect.jpg)
 
 
 
