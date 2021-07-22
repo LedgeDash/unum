@@ -1,5 +1,11 @@
 # Data store (wip)
 
+unum can use any addressable/indexable data stores, that is you can read and write individual items by their names. This includes blob storages, KV stores, file systems.
+
+Example of services that cannot work as unum intermediary data store are pub/sub messaging services, queues.
+
+
+
 The intermediary data store is configured at the workflow granularity. All functions in a workflow share the same intermediary data store.
 
 Programmers specify an intermediary data store in the workflow's `unum-template.yaml`under `Globals`. Two values need to be given:
