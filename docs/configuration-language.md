@@ -1,3 +1,15 @@
+# unum Intermediary Representation
+
+Reverse dependency DAG, expressed distributedly with the unum configuration language.
+
+TODO:
+
+1. design principles of the unum IR.
+   1. What information does it try to capture
+   2. What component does it try to keep abstract (e.g., user function code. The )
+2. What is the implementation? = `unum-config.json`
+
+
 # unum Configuration Language
 
 Each unum function has an unum configuration file that instructs the runtime
@@ -9,9 +21,34 @@ An unum configuration is a JSON file with the following fields:
 ```
 {
     "Next": "next function's name" | [<function names>],
-    "NextInput": "Scalar" | "Map" | "Fan-in"
+    "NextInput": "Scalar" | "Map" | "Fan-in",
     "WaitFor": "Map" | [<function names>]
 }
+```
+
+
+
+```
+{
+    "Next": "next function's name" | [<function names>],
+    "NextInput": "Scalar" | "Map" | "Fan-in"
+    "Checkpoint": True | False,
+    "Start": True | False,
+    "Fan-out Cancel" : True | False
+}
+```
+
+
+
+```
+"Fan-in": {
+        "Values": [
+        	"Filename ending with .json" |
+        	"Function name if it's unique in the workflow" |
+        	"Filename-Index-*-output.json" |
+        	"Filename-Index-1.*-output.json"
+        ],
+    }
 ```
 
 `Next` specifies the function or functions that should invoke next with my
@@ -49,6 +86,62 @@ pipelines by specifying the index. For example, `$MyIndex`.
 |-|-|-|
 | F1 | invoke F1 with user function's return value | User function return a list. Invoke an instance of F1 for each element of the list |
 | [F1, F2] | invoke both F1 and F2 with user function's return value | User function return a list. Invoke an instance of F1 and an instance of F2 for each element of the list |
+
+
+
+
+
+
+
+----------
+
+Cancel `Fan-out`:
+
+The issue arises in nested fan-outs. The question is should unum cross off the outmost fan-out field in the payload ***before sending it to the next invokee***.
+
+We have two choices in how to express when to cancel the fan-out payload field:
+
+1. derive statically at compile-time and have a `Fan-out Cancel` field in the function's `unum-config.json`. When `Fan-out Cancel` is in the `unum-config.json`, the function removes the `Fan-out` field from the payload when invoking the next function. If an `Outerloop` field exists, the `Fan-out` field is replaced with the `Outerloop` field's contents.
+2. When a function's `NextInput` is `Fan-in`, see if it is `Fan-in: {All Map}` or `Fan-in: [all fan-out functions in a parallel]`. Only when a fan-in covers all fan-out functions, would unum cancel the `Fan-out` field in the input paylod.
+
+Both cases rely on functions' `unum-config`, meaning static, compile-time behavior. Given that both choices are compile time behaviors, I think the first design is better, because it avoids overloading the `NextInput` field. Fan-out  cancellation behavior doesn't have to be "derived" from the `NextInput` field (possibly in combination with other fields); Instead, there's a field specifically for fan-out cancellation. 
+
+In fact, this all points to the complexity of fan-in. This should all be captured in the `NextInput: Fan-in` field.
+
+To summarize a bit at this point. The `NextInput: Fan-in` field in the `unum-config.json` should look something like:
+
+```json
+"NextInput": {
+    "Fan-in": {
+        "WaitFor": ["Filename ending with .json" | "Function name if it's unique in the workflow" | "Filename-Index-*-output.json" | "Filename-Index-1.*-output.json"],
+        "Fan-out Cancel": True |False,
+    }
+}
+```
+
+The previous `Map` value for `Fan-in` is not necessary and can be replaced with `myFunctionName-Index-*-output.json`. The `*` wildcard combined with the same `myFunctionName`, ***combined with the payload `Fan-out` field with `Size`*** is enough to support fan-in on a map.
+
+
+
+--------------
+
+## Branching and Conditional
+
+Programmable constructs:
+
+1. Fan-out indexes
+   1. $0, $1, $2
+2. Fan-out size: $size
+3. User function's results, $ret
+
+-----------------------
+
+
+
+
+
+
+
 
 
 ## Use Cases
@@ -207,7 +300,7 @@ fan-out, set the `WaitFor` field to `$MyIndex + 1`.
 	"NextInput": "Fan-in",
 	"WaitFor": ["$MyInput + 1"]
 }
-``` -->
+​``` -->
 
 Examples from unum appstore:
 * [parallel-pipeline](https://github.com/LedgeDash/unum-appstore/tree/main/parallel-pipeline),
@@ -236,3 +329,14 @@ Fan-in to multiple next functions. Step function always fan in to a single node.
 Map user function's output + waitfor/fan-in with another function
 
 Invalid combination: NextInput: scalar, Waitfor:map.
+
+1. A single function can map to multiple functions with `NextInput: Map` and `Next: ["F1","F2"]`.
+
+```
+
+![runtime-io-example-map-fanin-across-maps](D:\Dropbox (Princeton)\Dev\unum-compiler\docs\assets\runtime-io-example-map-fanin-across-maps.jpg)
+
+S' `unum-config.json`.
+
+
+
