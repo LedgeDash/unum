@@ -287,9 +287,9 @@ But the `Source` is still `http` because the data is not going through an unum i
 
 
 
-### Chain of A->B->C
+### Chain of  Functions
 
-![runtime-io-example-chain](D:\Dropbox (Princeton)\Dev\unum-compiler\docs\assets\runtime-io-example-chain.jpg)
+![runtime-io-example-chain](https://raw.githubusercontent.com/LedgeDash/unum-compiler/main/docs/assets/runtime-io-example-chain.jpg)
 
 An example chain workflow with two functions, A, B and C.
 
