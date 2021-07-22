@@ -10,7 +10,7 @@ Every unum function is invoked with a JSON input of the following structure:
         "Source": "http | s3 ",
         "Value": {}
         
-    }
+    },
     "Session": {"an ID passed to the intermediary data store"},
 	"Fan-out": {
         "Type": "Map | Parallel",
@@ -21,7 +21,7 @@ Every unum function is invoked with a JSON input of the following structure:
             "Index": 2,
             "Size": 5
         }
-    }
+    },
 	"Modifiers" : {
         "Invoke": "One-off | One-off-client | Downstream",
     }
@@ -38,7 +38,7 @@ Every unum function is invoked with a JSON input of the following structure:
 
 Source specifies where the data is coming from. It can be `http`, `s3`, `dynamodb`.
 
-if `Source: http`, data in the `Value` field should be a JSON object that the unum runtime passes directly to the user function as input.
+If `Source` is `http`, data in the `Value` field should be a JSON object that the unum runtime passes directly to the user function as input.
 
 If `Source` is not `http`, data in the `Value` field is one or more pointers to an unum data store whose type is specified in `Source`. The content of `Value` depends on the data store type. For example, if `Source: s3`, `Value` would be one or more keys.
 
@@ -52,7 +52,11 @@ Contents of the `Value` field depends on the `Source` field.
 
 If `Source: http`, data in the `Value` field is a JSON object that the unum runtime passes directly to the user function as input. The unum runtime does *not* interpret what's in the `Value` field.
 
-If `Source` is not `http`, the `Value` field is one or more pointers to an unum data store. Typically non-http data is received by fan-in functions. The runtime first reads the data via the pointers and then pass it to the user function.
+If `Source` is not `http`, the `Value` field is one or more pointers to an unum data store. The runtime reads the data via the pointers *in order* and then pass the ordered list to the user function. 
+
+
+
+Typically non-http data is received by fan-in functions.
 
 Pointers can be explicit names such as,
 
@@ -363,7 +367,7 @@ E's `unum-config.json`
 
 
 
-### Map fan-out of F -> [G]->H->M + fan-in
+### Map fan-out  + fan-in
 
 ![runtime-io-example-map](https://raw.githubusercontent.com/LedgeDash/unum-compiler/main/docs/assets/runtime-io-example-map.jpg)
 
@@ -1287,9 +1291,19 @@ Note that the following is invalid unum workflow because the blue D and E fan-in
 
 
 
-
-
 ### Nested Map fan-out + fan-in
+
+![runtime-io-example-nestedmap](D:\Dropbox (Princeton)\Dev\unum-compiler\docs\assets\runtime-io-example-nestedmap.jpg)
+
+In the example above, F first fan-out to 20 instances of Gs. Each G then fan-out to varying number of Hs.
+
+F's user function returns an array. G's user function returns an array.
+
+M's input is an array of H's return values. N's input is an array of M's return values.
+
+
+
+
 
 ### Nested Parallel + Map fan-out + fan-in
 
