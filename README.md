@@ -136,132 +136,52 @@ See [unum Application Template
 Anatomy](https://github.com/LedgeDash/unum-compiler/blob/main/docs/template.md)
 for more details.
 
-# unum Configurations
 
-Each unum function has an unum configuration file (`unum_config.json`). The
-unum runtime uses unum configs to decide what orchestration actions to take
-after user functions complete, that is whether to invoke a function, which
-function(s) to invoke, and with what input data.
 
-A unum configuration specifies the following information:
+# unum Intermediary Representation
 
-* which function or functions to invoke next
-* how to process the user function's output
-* which function or functions to wait for before invoking the next function
+The unum IR expresses serverless workflows using **continuations**. Each function has a continuation that defines what the next function to invoke is and how to invoke it.
 
-After the user function returns, the unum runtime executes the orchestration
-action based on the unum configuration. Each individual unum function carries
-out its share of orchestration actions without deligating back to a
-centralized coordinator service.
+unum implements continuations declaratively with a [configuration language](configuration-language). Each unum function is packaged with a `unum-config.json` file where a continuation is defined for that particular function.
 
-See [unum Configuration
-Language](https://github.com/LedgeDash/unum-compiler/blob/main/docs/configuration-language.md)
-for more details.
+Programmers can write the configuration directly or provide a Step Functions state machine to the frontend compiler. The frontend compiler translates the state machine to a set of `unum-config.json` file, one for each function in the state machine.
+
+[Graph: frontends-> IR -> backends]
 
 # unum Runtime
 
-The unum runtime executes orchestration actions based on the unum
-configuration and user function's output.
+unum runtime wraps around user function code and interposes on user function input and output.
 
-## Runtime Metadata
+[Graph: wrap]
 
+On a high level, the unum runtime does two things
 
-
-### ingress
-
-```json
-{
-	"Data": {
-		"Source":"http|s3|dynamodb|redis|elasticache|efs",
-		"Value": {}
-	},
-	"UnumMetadata": {
-		
-	}
-}
-```
-
-```json
-"Data": {
-	"Source":"http",
-	"Value": {"<json object>"}
-}
-```
-
-```json
-"Data": {
-	"Source":"s3",
-	"Value": {
-		"Bucket": "<bucket-name>",
-		"Prefix": "<prefix>",
-		"Fan-in": 5,
-	}
-}
-```
-
-```json
-"Data": {
-	"Source":"s3",
-	"Value": {
-		"Bucket": "<bucket-name>",
-		"Prefix": "<prefix>"
-	}
-}
-```
+1. Executes the continuation.
+2. Assigns each function invocation a unique name by adding necessary metadata to input payloads
 
 
-```json
-"Data": {
-	"Source":"dynamodb",
-	"Value": {
-		"Table": "<table-name>",
-		"Item": "<id>",
-		"Fan-in": 5,
-	}
-}
-```
 
-```json
-"Data": {
-	"Source":"dynamodb",
-	"Value": {
-		"Table": "<table-name>",
-		"Item": "<id>"
-	}
-}
-```
+<!--Each unum function has an unum configuration file (`unum_config.json`). The-->
+<!--unum runtime uses unum configs to decide what orchestration actions to take-->
+<!--after user functions complete, that is whether to invoke a function, which-->
+<!--function(s) to invoke, and with what input data.-->
 
-<!-- ### S3 event
+<!--A unum configuration specifies the following information:-->
 
-Automatically downloads the file to function's local storage (can parallelize
-with function execution) and pass it as a file descriptor to the function. -->
+* <!--which function or functions to invoke next-->
+* <!--how to process the user function's output-->
+* <!--which function or functions to wait for before invoking the next function-->
 
-<!-- ### JSON
+<!--After the user function returns, the unum runtime executes the orchestration-->
+<!--action based on the unum configuration. Each individual unum function carries-->
+<!--out its share of orchestration actions without deligating back to a-->
+<!--centralized coordinator service.-->
 
-If ingress receives a JSON string
+<!--See [unum Configuration
+Language](https://github.com/LedgeDash/unum-compiler/blob/main/docs/configuration-language.md)-->
+<!--for more details.-->
 
-Keyword arguments
+# Possible Tooling on top of unum
 
-```json
-{"foo": 1, "bar":2}
-```
+A monitor process watching the intermediary data store to detect new workflow invocations and function completions and errors. This process can provide a similar graphic UI as the Standard Step Functions.
 
-```python
-def handle(foo, bar):
-	...
-```
-
-Positional arguments
-
-```json
-{"arg1": 1, "arg2":2}
-```
-
-```python
-def handle(foo, bar):
-	...
-```
-
-Ingress runtime will pass 1 to `foo` and 2 to `bar`.
-
- -->

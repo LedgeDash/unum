@@ -13,23 +13,50 @@ class ReturnValueStoreDriver(object):
         self.backend = None
 
 class S3Driver(ReturnValueStoreDriver):
-    def __init__(self, ds_type, ds_name):
-        super(S3Driver, self).__init__(ds_type, ds_name)
+    def __init__(self, ds_name):
+        ''' Initialze an s3 data store
+
+        Raise an exception if the bucket doesn't exist.
+
+        @ param ds_name an s3 bucket name
+        '''
+        super(S3Driver, self).__init__("s3", ds_name)
         self.backend = boto3.client("s3")
+        # check if this bucket exists and this function has permission to
+        # access it
+        response = client.head_bucket(Bucket=self.name)
+
 
     def create_session(self):
         ''' Create a prefix (directory) in the bucket
         '''
-        pass
+        return f'{uuid.uuid4()}/'
 
     def create_fanin_context(self):
         ''' For the fan-out functions to write their outputs, creates a s3
         directory
+        DEPRECATED
         '''
         directoryName = f'{uuid.uuid4()}'
         self.backend.put_object(Bucket=self.name, Key=(directoryName+'/'))
 
         return directoryName
+
+    def read_input(ptr):
+        ''' Given the pointer(s) in event["Data"]["Value"], read the value(s)
+        from data store.
+
+        The pointers are used as is. It is the invoker's the responsibility to
+        make sure that the pointers are valid.
+
+        If any of the pointers don't exist in the bucket, this function will
+        keep retrying.
+        '''
+        
+        pass
+
+    def write_return_value(session, ret):
+        pass
 
     def write_fanin_context(self, output, fcn_name, context, index, size):
         ''' Fan-out function writes its outputs to the fan-in s3 directory
@@ -114,8 +141,8 @@ class S3Driver(ReturnValueStoreDriver):
         return ret
 
 class DynamoDBDriver(ReturnValueStoreDriver):
-    def __init__(self, ds_type, ds_name):
-        super(DynamoDBDriver, self).__init__(ds_type, ds_name)
+    def __init__(self, ds_name):
+        super(DynamoDBDriver, self).__init__("dynamodb", ds_name)
         self.backend = boto3.client("dynamodb")
 
     def create_session(self):

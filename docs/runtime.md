@@ -1,17 +1,26 @@
 # unum Input Format
 
-> `validate_input(event)`. But what is a valid input?
+Every unum function is invoked with a JSON input of the following structure. The input contains two types of information
 
-Every unum function is invoked with a JSON input of the following structure:
+1. The data for the user function
+2. unum runtime metadata
+
+The main purpose of the runtime metadata is to generate a unique name for each function invocation in the workflow. There are two types of metadata used to name a function invocation
+
+1. Session ID
+2. Fan-out index
+
+A session ID is created for each workflow invocation and shared by all function invocations in the workflow. It directly maps to a unique section of the intermediary data store where all function instances of the workflow invocation write their results. Depending on the type of the data store, the section may be a s3 prefix, a Dynamodb item or a Redis hash.
+
+A fan-out index is assigned to each fan-out function. When a function is not part of a fan-out, its input JSON does not contain this field. A fan-out index helps distinguish runtime function instances, especially when there are multiple running instances of the same function.
 
 ```json
 {
     "Data": {
         "Source": "http | s3 ",
-        "Value": {}
-        
+        "Value": "data value as a JSON object | [data store pointers]"
     },
-    "Session": {"an ID passed to the intermediary data store"},
+    "Session": "an ID passed to the intermediary data store",
 	"Fan-out": {
         "Type": "Map | Parallel",
         "Index": 1,
@@ -60,11 +69,17 @@ Typically non-http data is received by fan-in functions.
 
 Pointers can be explicit names such as,
 
-1. [`B-Index-0-output.json`, `C-Index-1-output.json`]
+1. [`B-unumIndex-0-output.json`, `C-unumIndex-1-output.json`]
 
-2. [`D-Index-1.0-output.json`, `E-Index-1.1-output.json`].
+2. [`D-unumIndex-1.0-output.json`, `E-unumIndex-1.1-output.json`].
 
-Or they can be glob patterns such as, [`F-Index-*-output.json`]. Glob patterns are commonly used in Map fan-ins. For instance, `F-Index-*-output.json` represents the return values of all of the `F` functions in a map fan-out. The unum runtime on the fan-in function will also look at the `Fan-out` field to determine how many files it needs to read, instead of relying on listing all files in the data store. This is because on eventually consistent data stores, the fan-in function may not see all files immediately. If the fan-in function does not find all of the inputs, it will keep retrying until either it finds all inputs or times out (see [Retries and Timeouts](#Retries_and_Timeouts)).
+Or they can be glob patterns such as,
+
+1. [`F-unumIndex-*-output.json`].
+2. [`F-unumIndex-$2.$1.*-output.json`]
+3. [`F-unumIndex-$2.*.0-output.json`]
+
+Glob patterns are commonly used in Map fan-ins. For instance, `F-unumIndex-*-output.json` represents the return values of all of the `F` functions in a map fan-out. The unum runtime on the fan-in function will also look at the `Fan-out` field to determine how many files it needs to read, instead of relying on listing all files in the data store. This is because on eventually consistent data stores, the fan-in function may not see all files immediately. If the fan-in function does not find all of the inputs, it will keep retrying until either it finds all inputs or times out (see [Retries and Timeouts](#Retries_and_Timeouts)).
 
 Note that the the `Value` array is *ordered*. The runtime passes the data to the user function in the order listed in the array. When a glob pattern is used, the runtime sorts the values by their indexes in ascending order.
 
@@ -88,9 +103,11 @@ The session value is abstract from the unum runtime's perspective. The unum runt
 
 **[OPTIONAL]**
 
-1. ~~only received by fan-out functions.~~ Added by the fan-out initiator to the input to its immediate fan-out functions.
-2. Downstream functions can inherit the same `Fan-out` field
-3. Only function's whose *`unum-config.json`* has `Fan-out Cancel: True` can remove the immediate `Fan-out` field from *its input* when preparing *input for its invokee*. Otherwise, the function has to propagate the `Fan-out` field to its invokee *as is*.
+Added by [fan-out initiators](#configurationLanguage) to the input to their fan-out functions.
+
+With nested fan-outs, the existing `Fan-out` field from the input is moved to a nested `Outerloop` field. The `Fan-out` and `Outerloop` fields forms a stack structure.
+
+Only function's whose `unum-config.json` has `Fan-out Cancel: True` can pop the top-level `Fan-out` field from *its input* when preparing *input for its invokee*. Otherwise, the function has to propagate the `Fan-out` field to its invokee *as is*.
 
 ### Type 
 
@@ -122,7 +139,11 @@ For nested fan-outs (whether Map or Parallel or a mixture of both), the outer-lo
 
 TODO
 
-Modifiers are used for testing an individual function or a subsection of a workflow.
+Feature added for testing.
+
+Modifiers are used for testing individual functions or a partial section of a workflow.
+
+
 
 ## Examples
 
@@ -311,9 +332,9 @@ B's `unum-config.json`:
     "NextInput": {
         "Fan-in": {
             "Values" : [
-                "B-Index-0-output.json",
-                "C-Index-1-output.json",
-                "D-Index-2-output.json",
+                "B-unumIndex-0-output.json",
+                "C-unumIndex-1-output.json",
+                "D-unumIndex-2-output.json",
             ]
         }
     }
@@ -327,9 +348,9 @@ B's input to E,
     "Data": {
         "Source": "s3",
         "Value": [
-            "fd9113b2-ac65-4d71-86de-f37a57c3c544/B-Index-0-output.json",
-            "fd9113b2-ac65-4d71-86de-f37a57c3c544/C-Index-1-output.json",
-            "fd9113b2-ac65-4d71-86de-f37a57c3c544/D-Index-2-output.json",
+            "fd9113b2-ac65-4d71-86de-f37a57c3c544/B-unumIndex-0-output.json",
+            "fd9113b2-ac65-4d71-86de-f37a57c3c544/C-unumIndex-1-output.json",
+            "fd9113b2-ac65-4d71-86de-f37a57c3c544/D-unumIndex-2-output.json",
         ]
     },
     "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
@@ -349,7 +370,7 @@ E's `unum-config.json`
 {
     "Next": "F"
     "NextInput": "Scalar"
-    "Fan-out Cancel" : True
+    "Fan-out Modifiers": ["Pop"]
 }
 ```
 
@@ -410,7 +431,7 @@ G's `unum-config.json`
     "NextInput": {
         "Fan-in": {
             "Values" : [
-               "G-Index-*-output.json"
+               "G-unumIndex-*-output.json"
             ]
         }
     }
@@ -430,7 +451,7 @@ If the $i^{th}$ G instance ends up invoking H, it will send the following input 
     "Data": {
         "Source": "s3",
         "Value": [
-            "fd9113b2-ac65-4d71-86de-f37a57c3c544/G-Index-*-output.json"
+            "fd9113b2-ac65-4d71-86de-f37a57c3c544/G-unumIndex-*-output.json"
         ]
     },
     "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
@@ -453,7 +474,7 @@ We can *statically control* which G would perform the fan-in with the `Condition
     "NextInput": {
         "Fan-in": {
             "Values" : [
-               "G-Index-*-output.json"
+               "G-unumIndex-*-output.json"
             ]
         }
     }
@@ -468,7 +489,7 @@ H's `unum-config.json`
 {
     "Next": "M"
     "NextInput": "Scalar"
-    "Fan-out Cancel" : True
+    "Fan-out Modifiers": ["Pop"]
 }
 ```
 
@@ -606,9 +627,9 @@ G's `unum-config.json`,
     "NextInput" : {
         "Fan-in": {
             "Values" : [
-                "E-Index-0-output.json",
-                "F-Index-1-output.json",
-                "G-Index-2-output.json"
+                "E-unumIndex-0-output.json",
+                "F-unumIndex-1-output.json",
+                "G-unumIndex-2-output.json"
             ]
         }
     }
@@ -624,9 +645,9 @@ G's input to H,
     "Data": {
         "Source": "s3",
         "Value": [
-            "fd9113b2-ac65-4d71-86de-f37a57c3c544/E-Index-0-output.json",
-            "fd9113b2-ac65-4d71-86de-f37a57c3c544/F-Index-1-output.json",
-            "fd9113b2-ac65-4d71-86de-f37a57c3c544/G-Index-2-output.json",
+            "fd9113b2-ac65-4d71-86de-f37a57c3c544/E-unumIndex-0-output.json",
+            "fd9113b2-ac65-4d71-86de-f37a57c3c544/F-unumIndex-1-output.json",
+            "fd9113b2-ac65-4d71-86de-f37a57c3c544/G-unumIndex-2-output.json",
         ]
     },
     "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
@@ -665,9 +686,9 @@ There are a couple of way of specifying E's `unum-config.json`. Because parallel
     "NextInput" : {
         "Fan-in": {
             "Values" : [
-                "E-Index-0-output.json",
-                "E-Index-1-output.json",
-                "E-Index-2-output.json"
+                "E-unumIndex-0-output.json",
+                "E-unumIndex-1-output.json",
+                "E-unumIndex-2-output.json"
             ]
         }
     }
@@ -681,9 +702,9 @@ If the last E ends up invoking H, then H's input will be,
     "Data": {
         "Source": "s3",
         "Value": [
-            "fd9113b2-ac65-4d71-86de-f37a57c3c544/E-Index-0-output.json",
-            "fd9113b2-ac65-4d71-86de-f37a57c3c544/E-Index-1-output.json",
-            "fd9113b2-ac65-4d71-86de-f37a57c3c544/E-Index-2-output.json",
+            "fd9113b2-ac65-4d71-86de-f37a57c3c544/E-unumIndex-0-output.json",
+            "fd9113b2-ac65-4d71-86de-f37a57c3c544/E-unumIndex-1-output.json",
+            "fd9113b2-ac65-4d71-86de-f37a57c3c544/E-unumIndex-2-output.json",
         ]
     },
     "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
@@ -703,7 +724,7 @@ Alternatively, we can use a glob pattern with `*` and the runtime will look at t
     "NextInput" : {
         "Fan-in": {
             "Values" : [
-                "E-Index-*-output.json"
+                "E-unumIndex-*-output.json"
             ]
         }
     }
@@ -717,7 +738,7 @@ H's input,
     "Data": {
         "Source": "s3",
         "Value": [
-            "fd9113b2-ac65-4d71-86de-f37a57c3c544/E-Index-*-output.json"
+            "fd9113b2-ac65-4d71-86de-f37a57c3c544/E-unumIndex-*-output.json"
         ]
     },
     "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
@@ -729,7 +750,7 @@ H's input,
 }
 ```
 
-As mentioned, the runtime on H will use the `Size: 3` to figure out the total number of `E-Index-*-output.json` that it needs to read.
+As mentioned, the runtime on H will use the `Size: 3` to figure out the total number of `E-unumIndex-*-output.json` that it needs to read.
 
 ![runtime-io-example-parallel-chain-diff-length](https://raw.githubusercontent.com/LedgeDash/unum-compiler/main/docs/assets/runtime-io-example-parallel-chain-diff-length.jpg)
 
@@ -743,9 +764,9 @@ D's `unum-config.json`
     "NextInput" : {
         "Fan-in": {
             "Values" : [
-                "E-Index-0-output.json",
-                "E-Index-1-output.json",
-                "D-Index-2-output.json"
+                "E-unumIndex-0-output.json",
+                "E-unumIndex-1-output.json",
+                "D-unumIndex-2-output.json"
             ]
         }
     }
@@ -762,9 +783,9 @@ E's `unum-config.json`
     "NextInput" : {
         "Fan-in": {
             "Values" : [
-                "E-Index-0-output.json",
-                "E-Index-1-output.json",
-                "D-Index-2-output.json"
+                "E-unumIndex-0-output.json",
+                "E-unumIndex-1-output.json",
+                "D-unumIndex-2-output.json"
             ]
         }
     }
@@ -778,9 +799,9 @@ D's input to H
     "Data": {
         "Source": "s3",
         "Value": [
-            "fd9113b2-ac65-4d71-86de-f37a57c3c544/E-Index-0-output.json",
-            "fd9113b2-ac65-4d71-86de-f37a57c3c544/E-Index-1-output.json",
-            "fd9113b2-ac65-4d71-86de-f37a57c3c544/D-Index-2-output.json",
+            "fd9113b2-ac65-4d71-86de-f37a57c3c544/E-unumIndex-0-output.json",
+            "fd9113b2-ac65-4d71-86de-f37a57c3c544/E-unumIndex-1-output.json",
+            "fd9113b2-ac65-4d71-86de-f37a57c3c544/D-unumIndex-2-output.json",
         ]
     },
     "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
@@ -815,7 +836,7 @@ and H has the following `unum-config.json`,
     "NextInput": {
         "Fan-in": {
             "Values" : [
-               "H-Index-*-output.json"
+               "H-unumIndex-*-output.json"
             ]
         }
     }
@@ -1049,8 +1070,8 @@ E's `unum-config.json`
     "NextInput": {
         "Fan-in": {
             "Values" : [
-               "D-Index-0.0-output.json",
-               "E-Index-0.1-output.json"
+               "D-unumIndex-0.0-output.json",
+               "E-unumIndex-0.1-output.json"
             ]
         }
     }
@@ -1065,8 +1086,8 @@ Alternatively,
     "NextInput": {
         "Fan-in": {
             "Values" : [
-               "D-Index-$1.0-output.json",
-               "E-Index-$1.1-output.json"
+               "D-unumIndex-$1.0-output.json",
+               "E-unumIndex-$1.1-output.json"
             ]
         }
     }
@@ -1080,8 +1101,8 @@ E's input to H
     "Data": {
         "Source": "s3",
         "Value": [
-        	"D-Index-0.0-output.json",
-        	"E-Index-0.1-output.json"
+        	"D-unumIndex-0.0-output.json",
+        	"E-unumIndex-0.1-output.json"
         ] 
         
     },
@@ -1106,8 +1127,8 @@ Alternatively,
     "Data": {
         "Source": "s3",
         "Value": [
-        	"D-Index-$1.0-output.json",
-        	"E-Index-$1.1-output.json"
+        	"D-unumIndex-$1.0-output.json",
+        	"E-unumIndex-$1.1-output.json"
         ] 
         
     },
@@ -1135,12 +1156,12 @@ H's `unum-config.json`
     "NextInput": {
     	"Fan-in" : {
     		"Value" : [
-    			"H-Index-0-output.json",
-    			"I-Index-1-output.json"
+    			"H-unumIndex-0-output.json",
+    			"I-unumIndex-1-output.json"
     		]
     	}
     },
-    "Fan-out Cancel" : True
+    "Fan-out Modifiers": ["Pop"]
 }
 ```
 
@@ -1151,8 +1172,8 @@ H's input to J
     "Data": {
         "Source": "s3",
         "Value": [
-        	"H-Index-0-output.json",
-        	"I-Index-1-output.json"
+        	"H-unumIndex-0-output.json",
+        	"I-unumIndex-1-output.json"
         ] 
         
     },
@@ -1179,8 +1200,8 @@ D's `unum-config.json`
     "NextInput": {
     	"Fan-in" : {
     		"Value" : [
-    			"D-Index-$1.0-output.json",
-    			"E-Index-$1.1-output.json"
+    			"D-unumIndex-$1.0-output.json",
+    			"E-unumIndex-$1.1-output.json"
     		]
     	}
     }
@@ -1195,12 +1216,12 @@ F's `unum-config.json`
     "NextInput": {
     	"Fan-in" : {
     		"Value" : [
-    			"F-Index-0-output.json",
-    			"F-Index-1-output.json"
+    			"F-unumIndex-0-output.json",
+    			"F-unumIndex-1-output.json"
     		]
     	}
     },
-    "Fan-out Cancel" : True
+    "Fan-out Modifiers": ["Pop"]
 }
 ```
 
@@ -1236,8 +1257,8 @@ Blue D's input to F
     "Data": {
         "Source": "s3",
         "Value": [
-    			"D-Index-$1.0-output.json",
-    			"E-Index-$1.1-output.json"
+    			"D-unumIndex-$1.0-output.json",
+    			"E-unumIndex-$1.1-output.json"
     		]
         
     },
@@ -1264,8 +1285,8 @@ Orange D's input to F
     "Data": {
         "Source": "s3",
         "Value": [
-    			"D-Index-$1.0-output.json",
-    			"E-Index-$1.1-output.json"
+    			"D-unumIndex-$1.0-output.json",
+    			"E-unumIndex-$1.1-output.json"
     		]
         
     },
@@ -1295,27 +1316,748 @@ Note that the following is invalid unum workflow because the blue D and E fan-in
 
 ![runtime-io-example-nestedmap](D:\Dropbox (Princeton)\Dev\unum-compiler\docs\assets\runtime-io-example-nestedmap.jpg)
 
-In the example above, F first fan-out to 20 instances of Gs. Each G then fan-out to varying number of Hs.
+In the example above, F first fan-out to 20 instances of Gs. Each G then fan-out to varying numbers of Hs.
 
 F's user function returns an array. G's user function returns an array.
 
 M's input is an array of H's return values. N's input is an array of M's return values.
 
+F's `unum-config.json`
 
+```
+{
+    "Next": "G",
+    "NextInput": "Map",
+    "Start": True
+}
+```
+
+Input to the 5th G instance
+
+```
+{
+    "Data": {
+        "Source": "http",
+        "Value": "5th item of F's result array"
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
+	"Fan-out": {
+        "Type": "Map",
+        "Index": 5,
+        "Size": 20
+    }
+}
+```
+
+
+
+G's `unum-config.json`
+
+```
+{
+    "Next": "H",
+    "NextInput": "Map"
+}
+```
+
+5th G's input to the 2nd H instance
+
+```
+{
+    "Data": {
+        "Source": "http",
+        "Value": "2nd item of the 5th G's result array"
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
+	"Fan-out": {
+        "Type": "Map",
+        "Index": 2,
+        "Size": 3,
+        "Outerloop": {
+            "Type": "Map",
+            "Index": 5,
+            "Size": 20
+        }
+    }
+}
+```
+
+
+
+H's `unum-config.json`
+
+```
+{
+    "Next": "M",
+    "NextInput": {
+    	"Fan-in" : {
+    		"Value" : ["H-unumIndex-$1.*-output.json"]
+    	}
+    }
+}
+```
+
+`$1` refers to *this* instance's first `Outerloop` index. `*` will expand to all indexes at the `$0` place. In the case of 2nd H instance of the 5th G instance, `*` will expand to `[0,1,2]` because the size of the last fan-out is 3.
+
+M's `unum-config.json`
+
+```
+{
+    "Next": "N",
+    "NextInput": {
+    	"Fan-in" : {
+    		"Value" : ["M-unumIndex-*-output.json"]
+    	}
+    },
+    "Fan-out Modifiers": ["Pop"]
+}
+```
+
+
+
+Input to the 5th M instance
+
+```
+{
+    "Data": {
+        "Source": "s3",
+        "Value": [
+        	"fd9113b2-ac65-4d71-86de-f37a57c3c544/H-unumIndex-$1.*-output.json"
+        ]
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
+	"Fan-out": {
+        "Type": "Map",
+        "Index": 2,
+        "Size": 3,
+        "Outerloop": {
+            "Type": "Map",
+            "Index": 5,
+            "Size": 20
+        }
+    }
+}
+```
+
+The runtime on the 5th M will expand `$1` to 5 and `*` to `[0,1,2]`.
+
+Because M has `"Fan-out Modifiers": ["Pop"]` in its `unum-config.json`, M will pop the `Fan-out` when creating the input to N:
+
+```
+{
+    "Data": {
+        "Source": "s3",
+        "Value": [
+        	"fd9113b2-ac65-4d71-86de-f37a57c3c544/M-unumIndex-*-output.json"
+        ]
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
+	"Fan-out": {
+        "Type": "Map",
+        "Index": 5,
+        "Size": 20
+    }
+}
+```
 
 
 
 ### Nested Parallel + Map fan-out + fan-in
 
-### Nested Map + Parallel fan-out + fan-in
+![runtime-io-example-nested-parallel-map](D:\Dropbox (Princeton)\Dev\unum-compiler\docs\assets\runtime-io-example-nested-parallel-map.jpg)
 
-### Parallel fan-out + partial fan-in (pipeline parallelism)
+We will follow the A->B->F.0.0 branch to illustrate how the runtime executes this workflow.
 
-### Map fan-out + partial fan-in (pipeline parallelism)
+A’s unum-config.json
+
+```
+{
+    "Next": ["B", "C"],
+    "NextInput": "Scalar"
+}
+```
+
+B's input
+
+```
+{
+    "Data": {
+        "Source": "http",
+        "Value": "A's result"
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
+	"Fan-out": {
+        "Type": "Parallel",
+        "Index": 0,
+        "Size": 2
+    }
+}
+```
 
 
 
+C's input
 
+```
+{
+    "Data": {
+        "Source": "http",
+        "Value": "A's result"
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
+	"Fan-out": {
+        "Type": "Parallel",
+        "Index": 1,
+        "Size": 2
+    }
+}
+```
+
+
+
+B’s unum-config.json
+
+```
+{
+    "Next": "F",
+    "NextInput": "Map"
+}
+```
+
+B will nest the previous `Fan-out` field when invoking F. 
+
+0th F's input
+
+```
+{
+    "Data": {
+        "Source": "http",
+        "Value": "0th element of B's result array"
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
+	"Fan-out": {
+        "Type": "Map",
+        "Index": 0,
+        "Size": 10,
+        "Outerloop": {
+            "Type": "Parallel",
+            "Index": 0,
+        	"Size": 2
+        }
+    }
+}
+```
+
+
+
+F’s unum-config.json
+
+```
+{
+    "Next": ["D", "E"],
+    "NextInput": "Scalar"
+}
+```
+
+F will further nest the `Fan-out` field when invoking D and E.
+
+D's input (invoked by the 0th F)
+
+```
+{
+    "Data": {
+        "Source": "http",
+        "Value": "F's result"
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
+    "Fan-out": {
+    	"Type": "Parallel",
+        "Index": 0,
+        "Size": 2,
+        "Outerloop": {
+        	"Type": "Map",
+            "Index": 0,
+            "Size": 10,
+            "Outerloop": {
+                "Type": "Parallel",
+                "Index": 0,
+                "Size": 2
+            }
+        }
+    }
+}
+```
+
+E's input (invoked by the 0th F)
+
+```
+{
+    "Data": {
+        "Source": "http",
+        "Value": "F's result"
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
+    "Fan-out": {
+    	"Type": "Parallel",
+        "Index": 1,
+        "Size": 2,
+        "Outerloop": {
+        	"Type": "Map",
+            "Index": 0,
+            "Size": 10,
+            "Outerloop": {
+                "Type": "Parallel",
+                "Index": 0,
+                "Size": 2
+            }
+        }
+    }
+}
+```
+
+
+
+D’s unum-config.json
+
+```
+{
+    "Next": "M",
+    "NextInput": {
+    	"Fan-in" : {
+    		"Value" : [
+    			"D-unumIndex-$2.$1.0-output.json",
+    			"E-unumIndex-$2.$1.1-output.json"
+    		]
+    	}
+    }
+}
+```
+
+E’s unum-config.json
+
+```
+{
+    "Next": "M",
+    "NextInput": {
+    	"Fan-in" : {
+    		"Value" : [
+    			"D-unumIndex-$2.$1.0-output.json",
+    			"E-unumIndex-$2.$1.1-output.json"
+    		]
+    	}
+    }
+}
+```
+
+M's input (assuming a D invoked it)
+
+```
+{
+    "Data": {
+        "Source": "s3",
+        "Value": [
+        	"D-unumIndex-$2.$1.0-output.json",
+    		"E-unumIndex-$2.$1.1-output.json"
+        ]
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
+    "Fan-out": {
+    	"Type": "Parallel",
+        "Index": 0,
+        "Size": 2,
+        "Outerloop": {
+        	"Type": "Map",
+            "Index": 0,
+            "Size": 10,
+            "Outerloop": {
+                "Type": "Parallel",
+                "Index": 0,
+                "Size": 2
+            }
+        }
+    }
+}
+```
+
+
+
+M’s unum-config.json
+
+```
+{
+    "Next": "N",
+    "NextInput": {
+    	"Fan-in" : {
+    		"Value" : ["M-unumIndex-$1.*-output.json"]
+    	}
+    },
+    "Fan-out Modifiers": ["Pop"]
+}
+```
+
+
+
+N's input
+
+```
+{
+    "Data": {
+        "Source": "s3",
+        "Value": [
+        	"M-unumIndex-$1.*-output.json"
+        ]
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
+    "Fan-out": {
+        "Type": "Map",
+        "Index": 0,
+        "Size": 10,
+        "Outerloop": {
+            "Type": "Parallel",
+            "Index": 0,
+            "Size": 2
+        }
+    }
+}
+```
+
+Note that M pops the top-level `Fan-out` off when constructing N's input.
+
+N’s unum-config.json
+
+```
+{
+    "Next": "P",
+    "NextInput": {
+    	"Fan-in" : {
+    		"Value" : ["N-unumIndex-*-output.json"]
+    	}
+    },
+    "Fan-out Modifiers": ["Pop"]
+}
+```
+
+It is possible to know the number of N instances a priori. Therefore, we can also write the configuration as,
+
+```
+{
+    "Next": "P",
+    "NextInput": {
+    	"Fan-in" : {
+    		"Value" : [
+    			"N-unumIndex-0-output.json",
+    			"N-unumIndex-1-output.json"
+    		]
+    	}
+    },
+    "Fan-out Modifiers": ["Pop"]
+}
+```
+
+P's input
+
+```
+{
+    "Data": {
+        "Source": "s3",
+        "Value": [
+        	"N-unumIndex-0-output.json",
+    		"N-unumIndex-1-output.json"
+        ]
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
+    "Fan-out": {
+        "Type": "Parallel",
+        "Index": 0,
+        "Size": 2
+    }
+}
+```
+
+
+
+P’s unum-config.json
+
+```
+{
+    "Next": "Q",
+    "NextInput": "Scalar",
+    "Fan-out Modifiers": ["Pop"]
+}
+```
+
+Q's input
+
+```
+{
+    "Data": {
+        "Source": "http",
+        "Value": "P's result"
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544"
+}
+```
+
+
+
+### Partial fan-in (pipeline parallelism)
+
+![runtime-io-example-map-partial-fanin](D:\Dropbox (Princeton)\Dev\unum-compiler\docs\assets\runtime-io-example-map-partial-fanin.jpg)
+
+F's `unum-config.json`
+
+```
+{
+    "Next": "G",
+    "NextInput": "Map",
+    "Start": True
+}
+```
+
+1st G's (`G.1`) input
+
+```
+{
+    "Data": {
+        "Source": "http",
+        "Value": "1st element of F's result array"
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
+	"Fan-out": {
+        "Type": "Map",
+        "Index": 1,
+        "Size": 5
+    }
+}
+```
+
+
+
+G's `unum-config.json`
+
+```
+{
+    "Next": {
+    	"H": {
+    		"Conditional": "$0 < $size-1"
+    	}
+    },
+    "NextInput": {
+    	"Fan-in" : {
+    		"Value" : [
+    			"G-unumIndex-$0-output.json",
+    			"G-unumIndex-$0+1-output.json"
+    		]
+    	}
+    },
+    "Fan-out Modifiers": ["$size = $size - 1"]
+}
+```
+
+`G.0`- `G.3` will invoke `H.0`-`H.3`. `G.4` will not invoke an H function.
+
+H.1's input:
+
+```
+{
+    "Data": {
+        "Source": "s3",
+        "Value": [
+    			"fd9113b2-ac65-4d71-86de-f37a57c3c544/G-unumIndex-$0-output.json",
+    			"fd9113b2-ac65-4d71-86de-f37a57c3c544/G-unumIndex-$0+1-output.json"
+    		]
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
+	"Fan-out": {
+        "Type": "Map",
+        "Index": 1,
+        "Size": 4
+    }
+}
+```
+
+The `Size` value in the `Fan-out` field is decreased by 1 because G's configuration has `$size = $size - 1` as a Fan-out Modifier.
+
+H's `unum-config.json`
+
+```
+{
+	"Next": "M",
+	"NextInput": {
+    	"Fan-in" : {
+    		"Value" : [
+    			"H-unumIndex-*-output.json"
+    		]
+    	}
+    },
+    "Fan-out Modifiers": ["Pop"]
+}
+```
+
+M's input (assuming `H.3` invokes it),
+
+```
+{
+    "Data": {
+        "Source": "s3",
+        "Value": [
+    			"fd9113b2-ac65-4d71-86de-f37a57c3c544/H-unumIndex-*-output.json"
+    		]
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
+	"Fan-out": {
+        "Type": "Map",
+        "Index": 3,
+        "Size": 4
+    }
+}
+```
+
+
+
+### Fan-out and Fold
+
+![runtime-io-example-map-fold](D:\Dropbox (Princeton)\Dev\unum-compiler\docs\assets\runtime-io-example-map-fold.jpg)
+
+F's `unum-config.json`
+
+```
+{
+	"Next": "H",
+	"NextInput": "Map",
+	"Start": True
+}
+```
+
+
+
+0th H instance's input
+
+```
+{
+    "Data": {
+        "Source": "http",
+        "Value": "0th element of F's result array"
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
+	"Fan-out": {
+        "Type": "Map",
+        "Index": 0,
+        "Size": 4
+    }
+}
+```
+
+H's `unum-config.json`
+
+```
+{
+	"Next": {
+		"M": {
+			"Conditional": "$0 == 0"
+		}
+	},
+	"NextInput": {
+    	"Fan-in" : {
+    		"Value" : [
+    			"H-unumIndex-$0-output.json",
+    			"H-unumIndex-$0+1-output.json"
+    		]
+    	}
+    }
+}
+```
+
+The `Conditional` precludes any H instances other than `H.0` from invoking the M function.
+
+M.0's input
+
+```
+{
+    "Data": {
+        "Source": "s3",
+        "Value": [
+        	"fd9113b2-ac65-4d71-86de-f37a57c3c544/H-unumIndex-$0-output.json",
+    		"fd9113b2-ac65-4d71-86de-f37a57c3c544/H-unumIndex-$0+1-output.json"
+        ]
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
+	"Fan-out": {
+        "Type": "Map",
+        "Index": 0,
+        "Size": 4
+    }
+}
+```
+
+The runtime will expand the `Value`to `["fd9113b2-ac65-4d71-86de-f37a57c3c544/H-unumIndex-0-output.json", "fd9113b2-ac65-4d71-86de-f37a57c3c544/H-unumIndex-1-output.json"]`.
+
+M's `unum-config.json`
+
+```
+{
+	"Next": {
+		"M": {
+			"Conditional": "$0 < $size-2"
+		}
+	},
+	"NextInput": {
+    	"Fan-in" : {
+    		"Value" : [
+    			"M-unumIndex-($0-1)-output.json",
+    			"H-unumIndex-($0+1)-output.json"
+    		]
+    	}
+    },
+    "Fan-out Modifiers": ["$0 = $0+1"]
+}
+```
+
+The `"$0 = $0+1"` will increment the `Index` value in the `Fan-out` field. M.0 will invoke M.1 with the following input,
+
+```
+{
+    "Data": {
+        "Source": "s3",
+        "Value": [
+        	"fd9113b2-ac65-4d71-86de-f37a57c3c544/M-unumIndex-($0-1)-output.json",
+    		"fd9113b2-ac65-4d71-86de-f37a57c3c544/H-unumIndex-($0+1)-output.json"
+        ]
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
+	"Fan-out": {
+        "Type": "Map",
+        "Index": 1,
+        "Size": 4
+    }
+}
+```
+
+The runtime will expand the `Value` to `["fd9113b2-ac65-4d71-86de-f37a57c3c544/M-unumIndex-0-output.json", "fd9113b2-ac65-4d71-86de-f37a57c3c544/H-unumIndex-2-output.json"]`
+
+Input to M.2
+
+```
+{
+    "Data": {
+        "Source": "s3",
+        "Value": [
+        	"fd9113b2-ac65-4d71-86de-f37a57c3c544/M-unumIndex-($0-1)-output.json",
+    		"fd9113b2-ac65-4d71-86de-f37a57c3c544/H-unumIndex-($0+1)-output.json"
+        ]
+    },
+    "Session": "fd9113b2-ac65-4d71-86de-f37a57c3c544",
+	"Fan-out": {
+        "Type": "Map",
+        "Index": 2,
+        "Size": 4
+    }
+}
+```
+
+The runtime will expand the `Value` to `["fd9113b2-ac65-4d71-86de-f37a57c3c544/M-unumIndex-1-output.json", "fd9113b2-ac65-4d71-86de-f37a57c3c544/H-unumIndex-3-output.json"]`
+
+M.2 will not invoke another M instance because 2 < 4-2 is false.
 
 ## Note on Branch (wip)
 

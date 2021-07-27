@@ -1,55 +1,70 @@
 # unum Intermediary Representation
 
-Reverse dependency DAG, expressed distributedly with the unum configuration language.
+The unum intermediary representation expresses FaaS workflows using [**continuations**](https://en.wikipedia.org/wiki/Continuation-passing_style). When an unum function has computed its result value, it returns by calling the continuation function with its result as the argument. The set of continuations from all functions forms the complete FaaS workflow.
 
-TODO:
+Continuations in unum are written statically using the [unum configuration language](#unum-configuration-language). Each function has an `unum-config.json` file in which it specifies
 
-1. design principles of the unum IR.
-   1. What information does it try to capture
-   2. What component does it try to keep abstract (e.g., user function code. The )
-2. What is the implementation? = `unum-config.json`
+1. Which unum function to invoke next
+2. What input to invoke it with
+3. Whether the result should be written into an intermediary data store
+
+The [unum runtime](https://github.com/LedgeDash/unum-compiler/blob/main/docs/runtime.md) is what actually executes the continuations written in `unum-config.json`. The execution invokes the next unum function with the current function's result value and optionally writes the value to the intermediary data store. For more details, see [the unum Runtime documentation](https://github.com/LedgeDash/unum-compiler/blob/main/docs/runtime.md).
+
+Application programmers can write continuations directly for each function to build workflows. Alternatively, they can provide a Step Functions definition to the [unum frontend compiler](https://github.com/LedgeDash/unum-compiler/blob/main/docs/frontend-compiler.md), and the compiler can translate the state machine into a set of `unum-config.json`, one for each function in the workflow. For more details, see [the unum frontend compiler documentation](https://github.com/LedgeDash/unum-compiler/blob/main/docs/frontend-compiler.md).
 
 
 # unum Configuration Language
 
-Each unum function has an unum configuration file that instructs the runtime
-what orchestration actions to take, that is whether it should invoke a
-function, which function(s) to invoke, and what input data to send.
+Each unum function has an unum configuration file (`unum-config.json`) that instructs the runtime what orchestration actions to take, that is whether it should invoke a function, which function(s) to invoke, and what input data to send.
 
 An unum configuration is a JSON file with the following fields:
 
 ```
 {
-    "Next": "next function's name" | [<function names>],
-    "NextInput": "Scalar" | "Map" | "Fan-in",
-    "WaitFor": "Map" | [<function names>]
-}
-```
-
-
-
-```
-{
-    "Next": "next function's name" | [<function names>],
-    "NextInput": "Scalar" | "Map" | "Fan-in"
+    "Next":
+        {
+                "Name": "FunctionName",
+                "Conditional": "BooleanExpression"
+        }, |
+        [
+            {
+                "Name": "FunctionA",
+                "Conditional": "BooleanExpressionA"
+            },
+            {
+                "Name": "FunctionNameB",
+                "Conditional": "BooleanExpressionB"
+            },
+            ...
+            {
+                "Name": "FunctionNameN",
+                "Conditional": "BooleanExpressionN"
+            }
+        ],
+    "NextInput": 
+    	"Scalar" |
+    	"Map"    |
+    	{
+    		"Fan-in": {
+                "Values": [
+                    "ExplicitPointerName",
+                    "GlobPattern"
+                ],
+            }
+        },
+    "Fan-out Modifiers" :
+    	[
+    		"Pop",
+    		"$size = $size - 1",
+    		"$0 = $0+1",
+    		...
+    	],
     "Checkpoint": True | False,
     "Start": True | False,
-    "Fan-out Cancel" : True | False
 }
 ```
 
 
-
-```
-"Fan-in": {
-        "Values": [
-        	"Filename ending with .json" |
-        	"Function name if it's unique in the workflow" |
-        	"Filename-Index-*-output.json" |
-        	"Filename-Index-1.*-output.json"
-        ],
-    }
-```
 
 `Next` specifies the function or functions that should invoke next with my
 user function's return value. The value is either a string of a function name,

@@ -3,19 +3,18 @@ from ds import S3Driver, DynamoDBDriver
 import json
 import boto3
 import uuid
-import os
+import os, sys
 import time, datetime
 
 with open('unum_config.json', 'r') as f:
     config = json.loads(f.read())
 
-ds_type = os.environ['UNUM_INTERMEDIARY_DATASTORE_TYPE']
-ds_name = os.environ['UNUM_INTERMEDIARY_DATASTORE_NAME']
-
-if ds_type == "s3":
-    my_return_value_store = S3Driver(ds_type,ds_name)
-elif ds_type == "dynamodb":
-    my_return_value_store = DynamoDBDriver(ds_type,ds_name)
+# Connect to the intermediary data store
+# If failed to connect, the function will raise an exception.
+if os.environ['UNUM_INTERMEDIARY_DATASTORE_TYPE'] == "s3":
+    my_return_value_store = S3Driver(os.environ['UNUM_INTERMEDIARY_DATASTORE_NAME'])
+elif os.environ['UNUM_INTERMEDIARY_DATASTORE_TYPE'] == "dynamodb":
+    my_return_value_store = DynamoDBDriver(os.environ['UNUM_INTERMEDIARY_DATASTORE_NAME'])
 else:
     raise IOError(f'unknown return value store type')
 
@@ -23,6 +22,7 @@ if "Next" in config:
     lambda_client = boto3.client("lambda")
 
 my_function_name = os.environ['AWS_LAMBDA_FUNCTION_NAME']
+
 
 def http_invoke_async(function, data):
     '''
@@ -39,6 +39,46 @@ def http_invoke_async(function, data):
 
     return
 
+def uerror(msg):
+    ''' Write error message to datastore/session_context/errors/
+    '''
+    return
+def validate_input(event):
+
+    if "Data" not in event:
+        uerror(f'No "Data" field found in event')
+        return False
+
+    if "Source" not in event["Data"] or "Value" not in event["Data"]:
+        uerror(f'"Data" field must specify "Source" and "Value"')
+        return False
+
+    if "Session" not in event:
+        if "Start" not in config or config["Start"] == False:
+            if "Modifiers" not in event or "Invoke" not in event["Modifiers"]:
+                uerror(f'Entry function failed to create session context')
+                return False
+
+    if event["Data"]["Source"] != "http" and event["Data"]["Source"] != my_return_value_store.type:
+        uerror(f'Input data need to sent via HTTP or the intermediary data store: {event["Data"]["Source"]}')
+        return False
+
+    return True
+
+def write_return_value(user_function_output, event, session_context):
+    ''' A function's return value is written to unum data store on-demand.
+        Situations that require a function to write its return value are:
+        1. Checkpoint: True
+        2. NextInput: Fan-in
+
+        Functions return value are uniquely identified by its name.
+
+        Names are implemented differently based on the underlying data store
+        type (e.g., block storage, file system, database)
+    '''
+    # derive output file name from function name and fanout indexes
+    pass
+
 def ingress(event, context):
     ''' Extract user function input from the request
         User functions input are always JSON serializable dicts.
@@ -47,34 +87,37 @@ def ingress(event, context):
         input is a directory containing fan-out function outputs. Ingress needs
         to read all fileds from the directory and return an ordered list.
     '''
-    if "Data" not in event:
-        raise IOError(f'No "Data" field found in event')
-
     data = event["Data"]
-    val = data["Value"]
-
     if data["Source"] =="http":
-        return val
-    elif data["Source"] == my_return_value_store.my_type:
-        # Check whether the input is a context (fan-in) or a scalar
-        # Scalar value should be read and return as is
-        # Context should read all items and return them in order as a list
-
-        if "Context" in val:
-            #TODO: If both "Context" and "Key" exist
-            if "Keys" in val:
-                return my_return_value_store.read_fanin_context(data["Value"]["Context"], keys=val["Keys"])
-            else:
-                return my_return_value_store.read_fanin_context(data["Value"]["Context"])
- 
-        elif "Keys" in val:
-            pass
-        else:
-            raise IOError(f'Ingress via data store missing value pointer information: {data}')
-
+        return data["Value"]
     else:
-        raise IOError(f'Unknown input data source: {data["Source"]}')
+        return my_return_value_store.read_input(data["Value"])
+#---------------------
+    # data = event["Data"]
+    # val = data["Value"]
 
+    # if data["Source"] =="http":
+    #     return val
+    # elif data["Source"] == my_return_value_store.my_type:
+    #     # Check whether the input is a context (fan-in) or a scalar
+    #     # Scalar value should be read and return as is
+    #     # Context should read all items and return them in order as a list
+
+    #     if "Context" in val:
+    #         #TODO: If both "Context" and "Key" exist
+    #         if "Keys" in val:
+    #             return my_return_value_store.read_fanin_context(data["Value"]["Context"], keys=val["Keys"])
+    #         else:
+    #             return my_return_value_store.read_fanin_context(data["Value"]["Context"])
+ 
+    #     elif "Keys" in val:
+    #         pass
+    #     else:
+    #         raise IOError(f'Ingress via data store missing value pointer information: {data}')
+
+    # else:
+    #     raise IOError(f'Unknown input data source: {data["Source"]}')
+#--------------------
     # if data["Source"] =="http":
     #     return val
     # elif data["Source"] == "s3":
@@ -90,10 +133,68 @@ def ingress(event, context):
     # else:
     #     raise IOError(f'Unknown input data source: {data["Source"]}')
 
+def get_unumindex_str(fof):
+    if "Outerloop" not in fof:
+        return str(fof["Index"])
+
+    return get_unumindex_str(fof["Outerloop"])+"."+str(fof["Index"])
+
+def get_my_return_value_name(fof):
+    if fof != {} and fof != None:
+        idx = get_unumindex_str(fof)
+        return my_function_name+"-unumIndex-"+idx
+    else:
+        return my_function_name
+
+
+def _run_modifier(modifier, fof):
+    ''' Run a single modifier
+    '''
+    if modifier == "Pop":
+        if "Outerloop" in fof:
+            return fof["Outerloop"]
+        else:
+            return {}
+
+    return fof
+
+
+def run_fanout_modifiers(modifiers, fof):
+    '''
+    @param modifiers [str] a list of modifiers
+    @param fof dict Fan-out field on the input
+    '''
+    for m in modifiers:
+        fof = _run_modifier(m, fof)
+
+    return fof
+
 def egress(user_function_output, event, context):
-    # Write user_function_output to storage if I need to fan-in or need to
-    # checkpoint the output write location is given in event["UnumMetadata"].
-    # TODO
+
+    # Compute the name of my return value
+    if "Fan-out" in event:
+        my_fof = event["Fan-out"]
+
+        # If "Pop" is in the "Fan-out Modifiers", execute it first so that my
+        # return value is correctly named.
+        if "Fan-out Modifiers" in config and "Pop" in config["Fan-out Modifiers"]:
+            my_fof = run_fanout_modifiers(["Pop"], event["Fan-out"])
+    else:
+        my_fof = {}
+
+    my_return_value_name = get_my_return_value_name(my_fof)
+
+    # Get the session context
+    if "Start" in config and config["Start"] == True:
+        # If I'm the entry function, create a session context
+        session_context = my_return_value_store.create_session_context()
+    else:
+        session_context = event["Session"]
+
+    # If Checkpoint: True, write user function's output to the unum
+    # intermediary data store first.
+    if "Checkpoint" in config and config["Checkpoint"] == True:
+        my_return_value_store.write_return_value(session_context, my_return_value_name, user_function_output)
 
     # If there's a next function to invoke, invoke it. Otherwise simply return
     if "Next" in config:
@@ -107,31 +208,64 @@ def egress(user_function_output, event, context):
                     }
                 }
 
-                # preserve the UnumMetadata field in event
-                if "UnumMetadata" in event:
-                    payload["UnumMetadata"] = event["UnumMetadata"]
+                # Add unum metadata into the payload
+                if "Start" in config and config["Start"] == True:
+                    # If I'm the entry function, create the context
+                    session_context = my_return_value_store.create_session_context()
+                    payload["Session"] = session_context
+                else:
+                    # If I'm not the entry function, the input event should
+                    # have an "Session" field. I should also
+                    # forward any other unum runtime metadata forward, such as
+                    # "Fan-out", to the next function.
+                    if "Session" not in event:
+                        raise IOError(f'Entry function failed to create session context')
+
+                    payload["Session"] = event["Session"]
+
+                    # propagating the fan-out metadata
+                    if "Fan-out" in event:
+                        payload["Fan-out"] = event["Fan-out"]
 
                 http_invoke_async(config["Next"], payload)
 
             elif isinstance(config["Next"], list):
-                # fan-out the same scalar to multiple functions
-                # create a subdirectory for fan-out functions to write their outputs to
-                # TODO
-
-                # Pass the subdirectory in the request payload under "UnumMetadata"
+                # Send the same data to multiple functions
                 payload = {
                     "Data": {
                         "Source": "http",
                         "Value": user_function_output
                     }
                 }
-                # preserve the UnumMetadata field in event
-                if "UnumMetadata" in event:
-                    payload["UnumMetadata"] = event["UnumMetadata"]
 
+                # Add unum metadata into the payload
+                if "Start" in config and config["Start"] == True:
+                    # If I'm the entry function, create the context
+                    session_context = my_return_value_store.create_session_context()
+                    payload["Session"] = session_context
+                else:
+                    # If I'm not the entry function, the input event should
+                    # have an "Session" field. I should also
+                    # forward any other unum runtime metadata forward, such as
+                    # "Fan-out", to the next function.
+                    if "Session" not in event:
+                        raise IOError(f'Entry function failed to create session context')
+
+                    payload["Session"] = event["Session"]
+                
                 # Invoke each function
-                for f in config["Next"]:
-                    http_invoke_async(f, payload)
+                for idx, f in enumerate(config["Next"]):
+                    # Add the Fan-out unum metadata
+                    pi = payload
+                    pi["Fan-out"] = {
+                        "Index": idx,
+                        "Size": len(config["Next"])
+                    }
+                    # Embed the outer loop metadata under ["Fan-out"]["OuterLoop"]
+                    if "Fan-out" in event:
+                        pi["Fan-out"]["OuterLoop"] = event["Fan-out"]
+
+                    http_invoke_async(f, pi)
             else:
                 raise IOError(f'Next field has to be a function name or a list of function names')
 
@@ -282,6 +416,11 @@ def get_waiter_list(cw, event):
     return wl
 
 def lambda_handler(event, context):
+
+    if validate_input(event) == False:
+        return {
+            "Error": "Invalid unum input"
+        }
 
     user_function_input = ingress(event, context)
     
