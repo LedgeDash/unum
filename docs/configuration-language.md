@@ -208,7 +208,7 @@ unum supports both.
 The function performing a fan-out is called the initiator. Functions in the
 fan are called the fan-out functions.
 
-![fan-out-generic](https://github.com/LedgeDash/unum-compiler/blob/main/docs/assets/fan-out-temp.jpg)
+![fan-out-generic](https://raw.githubusercontent.com/LedgeDash/unum-compiler/main/docs/assets/fan-out-temp.jpg)
 
 **Static**
 
@@ -292,7 +292,7 @@ compose fan-out and chains together to form parallel pipelines.
 unum allows applications to express data dependencies across parallel
 pipelines.
 
-![data-dep-parallel](https://github.com/LedgeDash/unum-compiler/blob/main/docs/assets/data-dep-parallel.jpg)
+![data-dep-parallel](https://raw.githubusercontent.com/LedgeDash/unum-compiler/main/docs/assets/data-dep-parallel.jpg)
 
 For static fan-out, functions in each branch can list a subset of all branches
 in its `WaitFor` field. In the example above, function A would set
@@ -367,7 +367,7 @@ Invalid combination: NextInput: scalar, Waitfor:map.
 
 ```
 
-![runtime-io-example-map-fanin-across-maps](D:\Dropbox (Princeton)\Dev\unum-compiler\docs\assets\runtime-io-example-map-fanin-across-maps.jpg)
+![runtime-io-example-map-fanin-across-maps](https://raw.githubusercontent.com/LedgeDash/unum-compiler/main/docs/assets/runtime-io-example-map-fanin-across-maps.jpg)
 
 S' `unum-config.json`.
 

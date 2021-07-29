@@ -1314,7 +1314,7 @@ Note that the following is invalid unum workflow because the blue D and E fan-in
 
 ### Nested Map fan-out + fan-in
 
-![runtime-io-example-nestedmap](D:\Dropbox (Princeton)\Dev\unum-compiler\docs\assets\runtime-io-example-nestedmap.jpg)
+![runtime-io-example-nestedmap](https://raw.githubusercontent.com/LedgeDash/unum-compiler/main/docs/assets/runtime-io-example-nestedmap.jpg)
 
 In the example above, F first fan-out to 20 instances of Gs. Each G then fan-out to varying numbers of Hs.
 
@@ -1464,7 +1464,7 @@ Because M has `"Fan-out Modifiers": ["Pop"]` in its `unum-config.json`, M will p
 
 ### Nested Parallel + Map fan-out + fan-in
 
-![runtime-io-example-nested-parallel-map](D:\Dropbox (Princeton)\Dev\unum-compiler\docs\assets\runtime-io-example-nested-parallel-map.jpg)
+![runtime-io-example-nested-parallel-map](https://raw.githubusercontent.com/LedgeDash/unum-compiler/main/docs/assets/runtime-io-example-nested-parallel-map.jpg)
 
 We will follow the A->B->F.0.0 branch to illustrate how the runtime executes this workflow.
 
@@ -1802,7 +1802,7 @@ Q's input
 
 ### Partial fan-in (pipeline parallelism)
 
-![runtime-io-example-map-partial-fanin](D:\Dropbox (Princeton)\Dev\unum-compiler\docs\assets\runtime-io-example-map-partial-fanin.jpg)
+![runtime-io-example-map-partial-fanin](https://raw.githubusercontent.com/LedgeDash/unum-compiler/main/docs/assets/runtime-io-example-map-partial-fanin.jpg)
 
 F's `unum-config.json`
 
@@ -1917,7 +1917,7 @@ M's input (assuming `H.3` invokes it),
 
 ### Fan-out and Fold
 
-![runtime-io-example-map-fold](D:\Dropbox (Princeton)\Dev\unum-compiler\docs\assets\runtime-io-example-map-fold.jpg)
+![runtime-io-example-map-fold](https://raw.githubusercontent.com/LedgeDash/unum-compiler/main/docs/assets/runtime-io-example-map-fold.jpg)
 
 F's `unum-config.json`
 
