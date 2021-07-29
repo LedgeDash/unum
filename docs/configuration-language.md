@@ -66,7 +66,7 @@ An unum configuration is a JSON file with the following fields:
 
 ## Next
 
-`Next` specifies the function or functions that should invoke next with my
+`Next` specifies the function or functions that should be invoked next with my
 user function's return value. It is either a single JSON object with a **Name** and a **Conditional** field or an array of such elements.
 
 The **Name** field is the next function's name. It should match one of the names from the `unum-template.yaml` (See [unum Template Documentation](https://github.com/LedgeDash/unum-compiler/blob/main/docs/template.md) for more details).
@@ -127,53 +127,25 @@ To invoke an unum workflow, invoke its entry function. The entry function will c
 
 ## Fan-out Modifiers
 
-The `Fan-out Modifiers` is a list of operators that can modify the `Fan-out` field in the input JSON during runtime.
+The `Fan-out Modifiers` is an ordered list of operators that can modify the `Fan-out` field in the input JSON during runtime. It controls the `Fan-out` field content of the *output*, i.e., the input to the next function.
 
-`Pop`.
+`Pop`: The `Fan-out` field forms a stack structure, with the earliest `Fan-out` in the bottom `Outerloop` field (see the [unum Runtime Documentation](https://github.com/LedgeDash/unum-compiler/blob/main/docs/runtime.md) for [examples](https://github.com/LedgeDash/unum-compiler/blob/main/docs/runtime.md#nested-parallel--map-fan-out--fan-in)). The `Pop` operator removes the top element from the `Fan-out` stack. If there's only one element in the stack, the `Fan-out` field is removed.
 
-`$size`
+`$size`: fan-out modifiers support unum variables. `$size` is an unum variable that refers to the `Size` field of the top element in the `Fan-out` stack.
 
-`$0`
+The ability to modify the `Size` field helps support applications that use partial fan-in across parallel pipelines. For [example](https://github.com/LedgeDash/unum-compiler/blob/main/docs/runtime.md#partial-fan-in-pipeline-parallelism).
 
-TODO.
+`$N`: `$N` is another set of unum variables that refers to the current function's fan-out index at depth N. For instance, `$0` is the `Index` field of the top element in the `Fan-out` stack.
+
+Being able to update the fan-out index enables fold operations on a set of fan-out functions. For [example](https://github.com/LedgeDash/unum-compiler/blob/main/docs/runtime.md#fan-out-and-fold).
+
+
 
 ## End/Leaf Functions
 
 If a function is the end of its workflow, it will not invoke another function as part of its continuation, and its `unum-config.json` will be an empty JSON object `{}`. End functions still need to have a `unum-config.json` files packaged with it.
 
-----------
-
-Cancel `Fan-out`:
-
-The issue arises in nested fan-outs. The question is should unum cross off the outmost fan-out field in the payload ***before sending it to the next invokee***.
-
-We have two choices in how to express when to cancel the fan-out payload field:
-
-1. derive statically at compile-time and have a `Fan-out Cancel` field in the function's `unum-config.json`. When `Fan-out Cancel` is in the `unum-config.json`, the function removes the `Fan-out` field from the payload when invoking the next function. If an `Outerloop` field exists, the `Fan-out` field is replaced with the `Outerloop` field's contents.
-2. When a function's `NextInput` is `Fan-in`, see if it is `Fan-in: {All Map}` or `Fan-in: [all fan-out functions in a parallel]`. Only when a fan-in covers all fan-out functions, would unum cancel the `Fan-out` field in the input paylod.
-
-Both cases rely on functions' `unum-config`, meaning static, compile-time behavior. Given that both choices are compile time behaviors, I think the first design is better, because it avoids overloading the `NextInput` field. Fan-out  cancellation behavior doesn't have to be "derived" from the `NextInput` field (possibly in combination with other fields); Instead, there's a field specifically for fan-out cancellation. 
-
-In fact, this all points to the complexity of fan-in. This should all be captured in the `NextInput: Fan-in` field.
-
-To summarize a bit at this point. The `NextInput: Fan-in` field in the `unum-config.json` should look something like:
-
-```json
-"NextInput": {
-    "Fan-in": {
-        "WaitFor": ["Filename ending with .json" | "Function name if it's unique in the workflow" | "Filename-Index-*-output.json" | "Filename-Index-1.*-output.json"],
-        "Fan-out Cancel": True |False,
-    }
-}
-```
-
-The previous `Map` value for `Fan-in` is not necessary and can be replaced with `myFunctionName-Index-*-output.json`. The `*` wildcard combined with the same `myFunctionName`, ***combined with the payload `Fan-out` field with `Size`*** is enough to support fan-in on a map.
-
-
-
-
-
-
+-----------
 
 
 
