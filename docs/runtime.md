@@ -2067,6 +2067,30 @@ The branching logic only controls whether a function in the `Next` field gets in
 
 
 
+# Runtime Variables
+
+`$n`: the Index value of the nth element in the Fan-out stack. For instance, `$0`: top level Fan-out field's Index
+
+`*`: wildcard that matches all index numbers at a particular fan-out level. The expanded range is determined by the `Size` field of the level.
+
+`$size`: the size of the top level Fan-out stack element
+
+`$ret`: return value of the user function
+
+## Examples
+
+Runtime variables can be used in return value names:
+
+`F-unumIndex-$1.4-output.json`
+
+`F-unumIndex-*-output.json`
+
+They can also be used in Conditional boolean expressions in the `unum-config.json`.
+
+`$0 == $size-1`
+
+`$ret == "MagicStringValue"`
+
 
 
 ------------

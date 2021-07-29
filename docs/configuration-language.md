@@ -64,49 +64,82 @@ An unum configuration is a JSON file with the following fields:
 }
 ```
 
-
+## Next
 
 `Next` specifies the function or functions that should invoke next with my
-user function's return value. The value is either a string of a function name,
-or a list of function names. An application's functions' names are defined in
-the application's unum template (`unum-template.yaml`).
+user function's return value. It is either a single JSON object with a **Name** and a **Conditional** field or an array of such elements.
 
-`NextInput` controls how the unum runtime forwards the user function's return
-value to the next function(s).
+The **Name** field is the next function's name. It should match one of the names from the `unum-template.yaml` (See [unum Template Documentation](https://github.com/LedgeDash/unum-compiler/blob/main/docs/template.md) for more details).
 
-* `Scalar` instructs the runtime to send the entire return value as a whole
-  and that's the only value it needs to send to the next function.
-* `Map` means that the user function should return a list and for each element
-  of the list, the runtime should invoke a next function with the element as
-  input.
-* `Fan-in` is used in combination with the `WaitFor` field when the next
-  function expects not only my return value but the return value of another
-  unum function (thus a fan-in). When the `NextInput` field is `Fan-in`, the
-  function will first wait for the functions in the `WaitFor` field to
-  complete before invoking the next function, and it will send both its return
-  value and the return values of the functions in the `WaitFor` field.
+The **Conditional** field is a boolean expression. A next function will be invoked only if its Conditional field evaluate to true.
 
-The `WaitFor` field is used for fan-in and it specifies which other unum
-function(s) I should wait for before invoking the next function.
+[unum rumtime variables](https://github.com/LedgeDash/unum-compiler/blob/main/docs/runtime.md#runtime-variables) can be used in the Conditional expression. For instance, we can make the last fan-out function to be the only one that performs a fan-in by setting:
 
-* `Map`
-* `[function names]`
-
-`WaitFor` also supports simple programming constructs that enable pipeline
-parallism. Applications can express data dependencies across pararllel
-pipelines by specifying the index. For example, `$MyIndex`.
-
-
-|  | Scalar | Map |
-|-|-|-|
-| F1 | invoke F1 with user function's return value | User function return a list. Invoke an instance of F1 for each element of the list |
-| [F1, F2] | invoke both F1 and F2 with user function's return value | User function return a list. Invoke an instance of F1 and an instance of F2 for each element of the list |
+```
+{
+    "Name": "NextFunction",
+    "Conditional": "$0 == $size-1"
+}
+```
 
 
 
+## NextInput
 
+`NextInput` controls what value to invoke the next function(s) with.
 
+`Scalar` instructs the runtime to send the entire return value as a whole
+and that's the only value it needs to send to the next function.
 
+`Map` means that the user function should return a list and for each element
+of the list, the runtime should invoke a next function with the element as
+input.
+
+`Fan-in` is used for perform a fan-in where the next function expects not only my return value but the return value of another unum function (thus a fan-in). `Fan-in` has a `Values` field that is a list of return value names. Each name identifies a particular function's return value. The list contains all return values names that's part of the next function's input, including this function's own. When a function has `Fan-in` as its `NextInput`, it will first check if all values exist in the intermediary data store before invoking the next function.
+
+A name in the `Values` list can be explicit name such as
+
+1. `Hello-output.json`
+2. `F-unumIndex-1.1.0-output.json`
+
+Or it could contain unum runtime variables and glob patterns such as
+
+1. `F-unumIndex-1.*-output.json`
+2. `F-unumIndex-$1.0-output.json`
+
+See the [unum Runtime Documentation](https://github.com/LedgeDash/unum-compiler/blob/main/docs/runtime.md) for more details on function return value naming conventions, unum runtime variables and glob patters.
+
+## Checkpoint
+
+`Checkpoint` controls whether to write the *user function's* return value to the intermediary data store.
+
+Fan-in functions always have `Checkpoint` set to True.
+
+Programmers can also set `Checkpoint` to True for debugging
+
+TODO: Fault-tolerance
+
+## Start
+
+The entry function of a workflow should have the `Start` field set to True. In a unum workflow, only one function should have its `Start` field set to True.
+
+To invoke an unum workflow, invoke its entry function. The entry function will create a session context in the intermediary data store. All subsequent functions during that invocation will write its return value under the session context. See the [unum Runtime Documentation](https://github.com/LedgeDash/unum-compiler/blob/main/docs/runtime.md) for more details.
+
+## Fan-out Modifiers
+
+The `Fan-out Modifiers` is a list of operators that can modify the `Fan-out` field in the input JSON during runtime.
+
+`Pop`.
+
+`$size`
+
+`$0`
+
+TODO.
+
+## End/Leaf Functions
+
+If a function is the end of its workflow, it will not invoke another function as part of its continuation, and its `unum-config.json` will be an empty JSON object `{}`. End functions still need to have a `unum-config.json` files packaged with it.
 
 ----------
 
@@ -135,21 +168,6 @@ To summarize a bit at this point. The `NextInput: Fan-in` field in the `unum-con
 ```
 
 The previous `Map` value for `Fan-in` is not necessary and can be replaced with `myFunctionName-Index-*-output.json`. The `*` wildcard combined with the same `myFunctionName`, ***combined with the payload `Fan-out` field with `Size`*** is enough to support fan-in on a map.
-
-
-
---------------
-
-## Branching and Conditional
-
-Programmable constructs:
-
-1. Fan-out indexes
-   1. $0, $1, $2
-2. Fan-out size: $size
-3. User function's results, $ret
-
------------------------
 
 
 
