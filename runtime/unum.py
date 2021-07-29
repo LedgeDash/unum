@@ -147,14 +147,17 @@ def get_my_return_value_name(fof):
         return my_function_name
 
 
-def _run_modifier(modifier, fof):
+def _run_fanout_modifier(modifier, fof):
     ''' Run a single modifier
     '''
+    if fof == {}:
+        return {}
     if modifier == "Pop":
         if "Outerloop" in fof:
             return fof["Outerloop"]
         else:
             return {}
+    # TODO
 
     return fof
 
@@ -165,11 +168,44 @@ def run_fanout_modifiers(modifiers, fof):
     @param fof dict Fan-out field on the input
     '''
     for m in modifiers:
-        fof = _run_modifier(m, fof)
+        fof = _run_fanout_modifier(m, fof)
 
     return fof
 
+def parse_replace_unum_var(s, event):
+    ''' Parse strings with unum variables and replace with python expressions
+    @param s string with unum variables
+    @param event input JSON
+
+    $0, $1, ...
+    *
+    $size
+    $ret
+    '''
+    pass
+
+def evaluate_conditional(cont, event, user_function_output):
+    ''' Check if the "Conditional" field in a continuation is True
+    @param cont A continuation. It is a python dict with the following structure:
+            {
+                "Name": "fn",
+                "Conditional": "boolean_expression"
+            }
+
+            The "Conditional" field may not exist, in which case the
+            conditional is always True and the continuation should always run.
+    '''
+    if "Conditional" not in cont:
+        return True
+
+    # TODO
+    parse_replace_unum_var(cont["Conditional"], event)
+    pass
+
 def egress(user_function_output, event, context):
+
+    # Execute invoke modifiers
+    # TODO
 
     # Compute the name of my return value
     if "Fan-out" in event:
@@ -178,7 +214,9 @@ def egress(user_function_output, event, context):
         # If "Pop" is in the "Fan-out Modifiers", execute it first so that my
         # return value is correctly named.
         if "Fan-out Modifiers" in config and "Pop" in config["Fan-out Modifiers"]:
-            my_fof = run_fanout_modifiers(["Pop"], event["Fan-out"])
+            # my_fof = run_fanout_modifiers(["Pop"], event["Fan-out"])
+            # event["Fan-out"] = my_fof
+            my_fof = _run_fanout_modifier("Pop", event["Fan-out"])
     else:
         my_fof = {}
 
@@ -187,19 +225,29 @@ def egress(user_function_output, event, context):
     # Get the session context
     if "Start" in config and config["Start"] == True:
         # If I'm the entry function, create a session context
-        session_context = my_return_value_store.create_session_context()
+        session_context = my_return_value_store.create_session()
     else:
         session_context = event["Session"]
 
     # If Checkpoint: True, write user function's output to the unum
-    # intermediary data store first.
+    # intermediary data store first. Note that functions whose `NextInput` is
+    # `Fan-in` should have `Checkpoint` set to True
     if "Checkpoint" in config and config["Checkpoint"] == True:
         my_return_value_store.write_return_value(session_context, my_return_value_name, user_function_output)
+
+    # Execute Fan-out Modifiers
+    modifiers = config["Fan-out Modifiers"]
+    new_fof = run_fanout_modifiers(modifiers, event["Fan-out"])
+    event["Fan-out"] = new_fof
 
     # If there's a next function to invoke, invoke it. Otherwise simply return
     if "Next" in config:
         if config["NextInput"] == "Scalar":
-            if isinstance(config["Next"],str):
+            if isinstance(config["Next"], dict):
+                cont = config["Next"]
+                if evaluate_conditional(cont, event, user_function_output) == False:
+                    return
+
                 # single function
                 payload = {
                     "Data": {
@@ -208,97 +256,155 @@ def egress(user_function_output, event, context):
                     }
                 }
 
-                # Add unum metadata into the payload
-                if "Start" in config and config["Start"] == True:
-                    # If I'm the entry function, create the context
-                    session_context = my_return_value_store.create_session_context()
-                    payload["Session"] = session_context
-                else:
-                    # If I'm not the entry function, the input event should
-                    # have an "Session" field. I should also
-                    # forward any other unum runtime metadata forward, such as
-                    # "Fan-out", to the next function.
-                    if "Session" not in event:
-                        raise IOError(f'Entry function failed to create session context')
+                payload["Session"] = event["Session"]
+                # propagating the fan-out metadata
+                if "Fan-out" in event:
+                    payload["Fan-out"] = event["Fan-out"]
 
-                    payload["Session"] = event["Session"]
+                http_invoke_async(cont["Name"], payload)
 
-                    # propagating the fan-out metadata
-                    if "Fan-out" in event:
-                        payload["Fan-out"] = event["Fan-out"]
+                # # Add unum metadata into the payload
+                # if "Start" in config and config["Start"] == True:
+                #     # If I'm the entry function, create the context
+                #     session_context = my_return_value_store.create_session_context()
+                #     payload["Session"] = session_context
+                # else:
+                #     # If I'm not the entry function, the input event should
+                #     # have an "Session" field. I should also
+                #     # forward any other unum runtime metadata forward, such as
+                #     # "Fan-out", to the next function.
+                #     if "Session" not in event:
+                #         raise IOError(f'Entry function failed to create session context')
 
-                http_invoke_async(config["Next"], payload)
+                #     payload["Session"] = event["Session"]
+
+                #     # propagating the fan-out metadata
+                #     if "Fan-out" in event:
+                #         payload["Fan-out"] = event["Fan-out"]
+
+                # http_invoke_async(config["Next"], payload)
 
             elif isinstance(config["Next"], list):
                 # Send the same data to multiple functions
-                payload = {
-                    "Data": {
-                        "Source": "http",
-                        "Value": user_function_output
+                for idx, cont in enumerate(config["Next"]):
+                    if evaluate_conditional(cont, event, user_function_output) == False:
+                        continue
+
+                    payload = {
+                        "Data": {
+                            "Source": "http",
+                            "Value": user_function_output
+                        }
                     }
-                }
 
-                # Add unum metadata into the payload
-                if "Start" in config and config["Start"] == True:
-                    # If I'm the entry function, create the context
-                    session_context = my_return_value_store.create_session_context()
                     payload["Session"] = session_context
-                else:
-                    # If I'm not the entry function, the input event should
-                    # have an "Session" field. I should also
-                    # forward any other unum runtime metadata forward, such as
-                    # "Fan-out", to the next function.
-                    if "Session" not in event:
-                        raise IOError(f'Entry function failed to create session context')
 
-                    payload["Session"] = event["Session"]
-                
-                # Invoke each function
-                for idx, f in enumerate(config["Next"]):
-                    # Add the Fan-out unum metadata
-                    pi = payload
-                    pi["Fan-out"] = {
+                    payload["Fan-out"] = {
+                        "Type": "Parallel"
                         "Index": idx,
                         "Size": len(config["Next"])
                     }
                     # Embed the outer loop metadata under ["Fan-out"]["OuterLoop"]
                     if "Fan-out" in event:
-                        pi["Fan-out"]["OuterLoop"] = event["Fan-out"]
+                        payload["Fan-out"]["OuterLoop"] = event["Fan-out"]
 
-                    http_invoke_async(f, pi)
+                    http_invoke_async(cont["Name"], payload)
+                #----------
+                # # Send the same data to multiple functions
+                # payload = {
+                #     "Data": {
+                #         "Source": "http",
+                #         "Value": user_function_output
+                #     }
+                # }
+
+                # # Add unum metadata into the payload
+                # if "Start" in config and config["Start"] == True:
+                #     # If I'm the entry function, create the context
+                #     session_context = my_return_value_store.create_session_context()
+                #     payload["Session"] = session_context
+                # else:
+                #     # If I'm not the entry function, the input event should
+                #     # have an "Session" field. I should also
+                #     # forward any other unum runtime metadata forward, such as
+                #     # "Fan-out", to the next function.
+                #     if "Session" not in event:
+                #         raise IOError(f'Entry function failed to create session context')
+
+                #     payload["Session"] = event["Session"]
+                
+                # # Invoke each function
+                # for idx, f in enumerate(config["Next"]):
+                #     # Add the Fan-out unum metadata
+                #     pi = payload
+                #     pi["Fan-out"] = {
+                #         "Index": idx,
+                #         "Size": len(config["Next"])
+                #     }
+                #     # Embed the outer loop metadata under ["Fan-out"]["OuterLoop"]
+                #     if "Fan-out" in event:
+                #         pi["Fan-out"]["OuterLoop"] = event["Fan-out"]
+
+                #     http_invoke_async(f, pi)
             else:
                 raise IOError(f'Next field has to be a function name or a list of function names')
 
         elif config["NextInput"] == "Map":
-            if isinstance(config["Next"],str):
+            if isinstance(config["Next"], dict):
+
+                cont = config["Next"]
+                if evaluate_conditional(cont, event, user_function_output) == False:
+                    return
+
                 # Check if the user_function_output is a list
                 if isinstance(user_function_output, list) == False:
                     raise IOError(f'Map node needs egress data to be of type list. {type(user_function_out)}')
 
-                # Allocate a subcontext in the intermediary datastore
-                context = my_return_value_store.create_fanin_context()
-
-                # Invoke one instance of the next function for each element of the array
                 for i, e in enumerate(user_function_output):
                     # construct payload
                     payload = {
-                                "Data": {
-                                    "Source":"http",
-                                    "Value": e
-                                },
-                                "UnumMetadata": {
-                                    "ReturnValueStore": {
-                                        "Type": my_return_value_store.my_type,
-                                        "Name": my_return_value_store.name,
-                                        "Context": context
-                                    },
-                                    "Index": i,
-                                    "FanoutSize": len(user_function_output)
-                                }
+                            "Data": {
+                                "Source":"http",
+                                "Value": e
+                            },
+                            "Session": session_context,
+                            "Fan-out": {
+                                "Type": "Map",
+                                "Index": i,
+                                "Size": len(user_function_output)
                             }
-                    http_invoke_async(config["Next"], payload)
+                        }
 
-                return
+                    # Embed the outer loop metadata under ["Fan-out"]["OuterLoop"]
+                    if "Fan-out" in event:
+                        payload["Fan-out"]["OuterLoop"] = event["Fan-out"]
+
+                    http_invoke_async(cont["Name"], payload)
+                #------------------------------------------
+                # # Allocate a subcontext in the intermediary datastore
+                # context = my_return_value_store.create_fanin_context()
+
+                # # Invoke one instance of the next function for each element of the array
+                # for i, e in enumerate(user_function_output):
+                #     # construct payload
+                #     payload = {
+                #                 "Data": {
+                #                     "Source":"http",
+                #                     "Value": e
+                #                 },
+                #                 "UnumMetadata": {
+                #                     "ReturnValueStore": {
+                #                         "Type": my_return_value_store.my_type,
+                #                         "Name": my_return_value_store.name,
+                #                         "Context": context
+                #                     },
+                #                     "Index": i,
+                #                     "FanoutSize": len(user_function_output)
+                #                 }
+                #             }
+                #     http_invoke_async(config["Next"], payload)
+
+                # return
 
             elif isinstance(config["Next"], list):
                 # TODO
@@ -307,7 +413,7 @@ def egress(user_function_output, event, context):
                 raise IOError(f'Next field has to be a function name or a list of function names')
 
         elif config["NextInput"] == "Fan-in":
-            if isinstance(config["Next"],str):
+            if isinstance(config["Next"], dict):
                 # write my output to the ReturnValueStore
                 if ("UnumMetadata" not in event) or ("ReturnValueStore" not in event["UnumMetadata"]):
                     raise IOError(f'Fan-in node missing UnumMetadata and ReturnValueStore in event: {event}')
@@ -391,7 +497,6 @@ def egress(user_function_output, event, context):
                 pass
             else:
                 raise IOError(f'Next field has to be a function name or a list of function names')
-            return
         else:
             raise IOError(f'Unknown NextInput value: {config["NextInput"]}')
 

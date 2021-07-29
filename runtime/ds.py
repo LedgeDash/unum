@@ -55,8 +55,21 @@ class S3Driver(ReturnValueStoreDriver):
         
         pass
 
-    def write_return_value(session, ret):
-        pass
+    def write_return_value(session, ret_name, ret):
+        ''' Write a user function's return value to the s3 bucket
+
+        @param session a s3 prefix that is the session context
+        @param ret_name the s3 file name
+        @param ret the user function's return value
+        '''
+        fn = f'{ret_name}.json'
+        local_file_path = '/tmp/'+fn
+        with open(local_file_path, 'w') as f:
+            f.write(json.dumps(ret))
+
+        self.backend.upload_file(local_file_path,
+                                 self.name,
+                                 f'{session}/{fn}')
 
     def write_fanin_context(self, output, fcn_name, context, index, size):
         ''' Fan-out function writes its outputs to the fan-in s3 directory
@@ -66,6 +79,7 @@ class S3Driver(ReturnValueStoreDriver):
             @param context s3 directory name (without the /)
             @param index function's index in the fan-out
             @param size fan-out size
+            DEPRECATED
         '''
         fn = f"{fcn_name}-UINDEX-{index}-outof-{size}.json"
         local_file_path = '/tmp/'+fn
