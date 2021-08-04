@@ -24,7 +24,7 @@ class S3Driver(ReturnValueStoreDriver):
         self.backend = boto3.client("s3")
         # check if this bucket exists and this function has permission to
         # access it
-        response = client.head_bucket(Bucket=self.name)
+        response = self.backend.head_bucket(Bucket=self.name)
 
 
     def create_session(self):

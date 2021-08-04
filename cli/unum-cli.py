@@ -94,7 +94,8 @@ def build(args):
             # platform_template = yaml.load(f.read(), Loader=Loader)
             platform_template = load_yaml(f.read())
     except Exception as e:
-        raise IOError(f'Make sure {platform_template_fn} exists in the current directory')
+        print(f'Error: {platform_template_fn} not found.\nMake sure {platform_template_fn} exists in the current directory')
+        exit(1)
 
     if "AWSTemplateFormatVersion" in platform_template:
         sam_build(platform_template, args)
@@ -108,7 +109,7 @@ def deploy_sam_first():
     # function's unum_config.json with the arn, store function name to arn
     # mapping in function-arn.yaml
 
-    # Deploy functions as is
+    # First deployment. Deploy functions as is
     with open("unum-template.yaml") as f:
         app_template = yaml.load(f.read(),Loader=Loader)
 
@@ -130,6 +131,7 @@ def deploy_sam_first():
     # grep for the functions' arn
     stdout = ret.stdout.decode("utf-8")
     print(stdout)
+    print(ret.stderr.decode("utf-8"))
     try:
         deploy_output = stdout.split("Outputs")[1]
     except:
@@ -144,9 +146,9 @@ def deploy_sam_first():
     while True:
         while deploy_output[i] != "Key":
             i = i+1
-        
+
         function_name = deploy_output[i+1].replace("Function","")
-        
+
         while deploy_output[i] != "Value":
             i = i+1
         function_arn = deploy_output[i+1] + deploy_output[i+2]
@@ -160,7 +162,8 @@ def deploy_sam_first():
         d = yaml.dump(function_to_arn_mapping, Dumper=Dumper)
         f.write(d)
 
-    # update each function's unum_config.json by replacing function names with arns
+    # update each function's unum_config.json by replacing function names with
+    # arns in the continuation
     for f in app_template["Functions"]:
         app_dir = app_template["Functions"][f]["Properties"]["CodeUri"]
 
@@ -168,10 +171,11 @@ def deploy_sam_first():
             config = json.loads(c.read())
 
             if "Next" in config:
-                if isinstance(config["Next"],str):
-                    config["Next"] = function_to_arn_mapping[config["Next"]]
+                if isinstance(config["Next"],dict):
+                    config["Next"]["Name"] = function_to_arn_mapping[config["Next"]["Name"]]
                 if isinstance(config["Next"], list):
-                    config["Next"] = [function_to_arn_mapping[nn] for nn in config["Next"]]
+                    for cnt in config["Next"]:
+                        cnt["Name"] = function_to_arn_mapping[cnt["Name"]]
                 c.seek(0)
                 c.write(json.dumps(config))
                 c.truncate()
@@ -183,11 +187,17 @@ def deploy_sam(args):
         raise OSError(f'Environment variable $AWS_PROFILE must exist')
 
     if os.path.isfile('function-arn.yaml') == False:
+        # This is the first time to deploy this app. Need to do a trial
+        # deployment to create the Lambda resources and get their arn. With
+        # the arns, replace the `Name` field of the continuation of each
+        # unum-config.json with the arn of the deployed Lambda, rebuild the
+        # functions and then deploy again.
         deploy_sam_first()
         args.template=False
         args.clean=False
         build(args)
 
+    # second deployment
     with open("unum-template.yaml") as f:
         app_template = yaml.load(f.read(),Loader=Loader)
 
@@ -260,6 +270,7 @@ def template(args):
         # template = generate_azure_template(app_template)
         return
     elif args.platform ==None:
+        print(f'Failed to generate platform template due to missing target')
         raise ValueError(f'specify target platform with -p or --platform. See unum-cli template -h for details.')
     else:
         raise ValueError(f'Unknown platform: {args.platform}')

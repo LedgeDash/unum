@@ -32,7 +32,7 @@ unum-cli build -t -p aws
 
 The `-t` option would generate an AWS CloudFormation template (named
 `template.yaml`) based on `unum-template.yaml` on the fly. You can also
-generate a `template.yaml` without building the applicatoin by running
+generate a `template.yaml` without building the application by running
 
 ```bash
 unum-cli template -p aws
@@ -44,7 +44,7 @@ With the `template.yaml` in the directory, you can simply run
 unum-cli build
 ```
 
-to build the application for AWS. 
+to build the application for AWS. `unum-cli build` internally calls [AWS SAM](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/what-is-sam.html) to build the application and you will see the build artifacts under the `.aws-sam/` directory.
 
 To deploy your application to AWS, run
 
@@ -59,14 +59,10 @@ unum-cli deploy -b
 ```
 
 Without the `-b` option, unum will try to deploy the existing build artifacts
-and you might see `No changes to deploy` becuase your code changes haven't
+and you might see `No changes to deploy` because your code changes haven't
 been built yet.
 
-
-For AWS, unum uses [AWS
-SAM](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/what-is-sam.html)
-for building and deploying. Build artifacts are in `.aws-sam/` under your
-application directory.
+`unum-cli deploy` internally calls AWS SAM to deploy the application as an AWS CloudFormation stack. Before calling `unum-cli deploy` for AWS, make sure that you have the environment set up to work with AWS and SAM. 
 
 # unum Applications and Funtions
 

@@ -2013,6 +2013,8 @@ M's `unum-config.json`
 }
 ```
 
+The `Conditional: "$0 < $size-2"` will stop the recursion at the 2nd to last iteration.
+
 The `"$0 = $0+1"` will increment the `Index` value in the `Fan-out` field. M.0 will invoke M.1 with the following input,
 
 ```
@@ -2059,13 +2061,21 @@ The runtime will expand the `Value` to `["fd9113b2-ac65-4d71-86de-f37a57c3c544/M
 
 M.2 will not invoke another M instance because 2 < 4-2 is false.
 
-## Note on Branch (wip)
+## Conditional 
 
-Branching (i.e., `Conditional` on the `Next` field) is statically coded in `unum-config.json`. The unum runtime runtime executes the branching logic.
+ unum uses the `Conditional` field to control whether a continuation gets invoked or not. Programmers can use the `Conditional` field to encode termination condition or branching.
 
-The branching logic only controls whether a function in the `Next` field gets invoked or not. It does not change the input data in any way.
+`Conditional` does not change the input to the continuation.
 
+### Termination
 
+Terminate on `$ret`
+
+Terminate on index `$0`
+
+### Branch
+
+Branches encoded as a list.
 
 # Runtime Variables
 
