@@ -133,7 +133,7 @@ def _run_fanout_modifier(modifier, fof):
     if "$size" in modifier:
         exec_modifier = exec_modifier.replace("$size", 'fof["Size"]')
 
-    if "$0" in modifer:
+    if "$0" in modifier:
         exec_modifier = exec_modifier.replace("$0", 'fof["Index"]')
 
 
@@ -141,11 +141,21 @@ def _run_fanout_modifier(modifier, fof):
     return fof
 
 
-def run_fanout_modifiers(modifiers, fof):
+def run_fanout_modifiers(event):
     '''
     @param modifiers [str] a list of modifiers
-    @param fof dict Fan-out field on the input
+    @param event dict input event
     '''
+    if "Fan-out" not in event:
+        return {}
+
+    fof = event["Fan-out"]
+
+    if "Fan-out Modifiers" not in config:
+        return fof
+
+    modifiers = config["Fan-out Modifiers"]
+
     for m in modifiers:
         fof = _run_fanout_modifier(m, fof)
 
@@ -191,9 +201,18 @@ def evaluate_conditional(cont, event, user_function_output):
         cond = cond.replace("$size", str(event["Fan-out"]["Outerloop"]["Index"]))
 
     if "$ret" in cond:
-        #TODO: might need a more complex conversion than simply calling
-        #`str()`
-        cond = cond.replace("$ret", str(user_function_output))
+        # TODO: Depending on the return value types that we want to support,
+        # we might need a more complex conversion than simply calling `str()`.
+        # See the Step Functions Choice state for the types and comparison
+        # operators that they support.
+
+        if isinstance(user_function_output,str):
+            cond = cond.replace("$ret", f"'{user_function_output}'")
+        else:
+            uerror(f'Unsupported user function return value type for Conditional')
+            return False
+
+    # raise IOError(f'{cond}, {type(cond)}; {cont["Conditional"]}')
     
     return eval(cond)
 
@@ -232,10 +251,8 @@ def egress(user_function_output, event, context):
 
     # Execute Fan-out Modifiers
     # The Size and Index fields might be changed
-    if "Fan-out Modifiers" in config:
-        modifiers = config["Fan-out Modifiers"]
-        next_fof = run_fanout_modifiers(modifiers, event["Fan-out"])
-        # event["Fan-out"] = next_fof
+    if "Fan-out" in event:
+        next_fof = run_fanout_modifiers(event)
 
     # If there's a next function to invoke, invoke it. Otherwise simply return
     if "Next" not in config:
@@ -260,7 +277,7 @@ def egress(user_function_output, event, context):
             payload["Session"] = session_context
 
             # Inherit and propagate the fan-out metadata
-            if "Fan-out" in event:
+            if "Fan-out" in event and next_fof != {}:
                 # payload["Fan-out"] = event["Fan-out"]
                 payload["Fan-out"] = next_fof
 
@@ -287,7 +304,7 @@ def egress(user_function_output, event, context):
                     "Size": len(config["Next"])
                 }
                 # Embed the outer loop metadata under ["Fan-out"]["OuterLoop"]
-                if "Fan-out" in event:
+                if "Fan-out" in event and next_fof != {}:
                     # payload["Fan-out"]["OuterLoop"] = event["Fan-out"]
                     payload["Fan-out"]["OuterLoop"] = next_fof
 
@@ -323,7 +340,7 @@ def egress(user_function_output, event, context):
                     }
 
                 # Embed the outer loop metadata under ["Fan-out"]["OuterLoop"]
-                if "Fan-out" in event:
+                if "Fan-out" in event and next_fof != {}:
                     # payload["Fan-out"]["OuterLoop"] = event["Fan-out"]
                     payload["Fan-out"]["OuterLoop"] = next_fof
 
