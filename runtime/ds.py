@@ -30,7 +30,7 @@ class S3Driver(ReturnValueStoreDriver):
     def create_session(self):
         ''' Create a prefix (directory) in the bucket
         '''
-        return f'{uuid.uuid4()}/'
+        return f'{uuid.uuid4()}'
 
     def create_fanin_context(self):
         ''' For the fan-out functions to write their outputs, creates a s3
@@ -42,7 +42,7 @@ class S3Driver(ReturnValueStoreDriver):
 
         return directoryName
 
-    def read_input(ptr):
+    def read_input(self, ptr):
         ''' Given the pointer(s) in event["Data"]["Value"], read the value(s)
         from data store.
 
@@ -55,7 +55,7 @@ class S3Driver(ReturnValueStoreDriver):
         
         pass
 
-    def write_return_value(session, ret_name, ret):
+    def write_return_value(self, session, ret_name, ret):
         ''' Write a user function's return value to the s3 bucket
 
         @param session a s3 prefix that is the session context
