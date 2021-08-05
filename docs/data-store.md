@@ -49,6 +49,10 @@ used by `ingress()` to acquire the input data to the user function.
 
 
 
+`check_value_exist()`
+
+`check_values_exist()`
+
 # Consistency
 
 Scenarios:

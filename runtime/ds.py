@@ -55,6 +55,24 @@ class S3Driver(ReturnValueStoreDriver):
         
         pass
 
+    def check_value_exist(self, session, name):
+        pass
+    def check_values_exist(self, session, names):
+
+        s3_names = [f'{session}/{n}-output.json' for n in names]
+
+        response = self.backend.list_objects_v2(
+                        Bucket=self.name,
+                        Prefix=f'{session}/' # e.g., reducer0/
+                    )
+        all_keys = [e["Key"] for e in response["Contents"]]
+
+        for n in s3_names:
+            if n not in all_keys:
+                return False
+
+        return True
+
     def write_return_value(self, session, ret_name, ret):
         ''' Write a user function's return value to the s3 bucket
 

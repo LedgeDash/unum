@@ -218,6 +218,28 @@ def evaluate_conditional(cont, event, user_function_output):
     
     return eval(cond)
 
+def expand_return_value_name(name, event):
+    expanded_name= name
+
+    if "$0" in expanded_name:
+        expanded_name = name.replace("$0", str(event["Fan-out"]["Index"]))
+    if "$1" in expanded_name:
+        expanded_name = name.replace("$1", str(event["Fan-out"]["Outerloop"]["Index"]))
+    if "*" in expanded_name:
+        tmp = expanded_name
+        expanded_name = [tmp.replace("*",i) for i in range(event["Fan-out"]["Size"])]
+
+    return expanded_name
+
+
+
+def expand_fanin_values(vl, event):
+
+    tmp = [expand_return_value_name(n, event) for n in vl]
+    expanded_names = [item for sublist in tmp for item in sublist]
+    return expanded_names
+
+
 def egress(user_function_output, event, context):
 
     # Execute invoke modifiers
@@ -253,8 +275,8 @@ def egress(user_function_output, event, context):
 
     # Execute Fan-out Modifiers
     # The Size and Index fields might be changed
-    if "Fan-out" in event:
-        next_fof = run_fanout_modifiers(event)
+    # if "Fan-out" in event:
+    #     next_fof = run_fanout_modifiers(event)
 
     # If there's a next function to invoke, invoke it. Otherwise simply return
     if "Next" not in config:
@@ -279,8 +301,9 @@ def egress(user_function_output, event, context):
             payload["Session"] = session_context
 
             # Inherit and propagate the fan-out metadata
-            if "Fan-out" in event and next_fof != {}:
+            if "Fan-out" in event:
                 # payload["Fan-out"] = event["Fan-out"]
+                next_fof = run_fanout_modifiers(event)
                 payload["Fan-out"] = next_fof
 
             http_invoke_async(cont["Name"], payload)
@@ -306,8 +329,9 @@ def egress(user_function_output, event, context):
                     "Size": len(config["Next"])
                 }
                 # Embed the outer loop metadata under ["Fan-out"]["OuterLoop"]
-                if "Fan-out" in event and next_fof != {}:
+                if "Fan-out" in event:
                     # payload["Fan-out"]["OuterLoop"] = event["Fan-out"]
+                    next_fof = run_fanout_modifiers(event)
                     payload["Fan-out"]["OuterLoop"] = next_fof
 
                 http_invoke_async(cont["Name"], payload)
@@ -342,8 +366,9 @@ def egress(user_function_output, event, context):
                     }
 
                 # Embed the outer loop metadata under ["Fan-out"]["OuterLoop"]
-                if "Fan-out" in event and next_fof != {}:
+                if "Fan-out" in event:
                     # payload["Fan-out"]["OuterLoop"] = event["Fan-out"]
+                    next_fof = run_fanout_modifiers(event)
                     payload["Fan-out"]["OuterLoop"] = next_fof
 
                 http_invoke_async(cont["Name"], payload)
@@ -365,6 +390,49 @@ def egress(user_function_output, event, context):
             cont = config["Next"]
             if evaluate_conditional(cont, event, user_function_output) == False:
                 return
+
+            # Get the list of all names that this function needs to wait for
+            # by expanding config["NextInput"]["Fan-in"]["Values"]
+            expanded_names = expand_fanin_values(config["NextInput"]["Fan-in"]["Values"], event)
+
+            # Check for existence of values
+            if my_return_value_store.check_values_exist(session_context, expanded_names):
+                payload = {
+                    "Data": {
+                        "Source": my_return_value_store.my_type,
+                        "Value": expanded_names
+                    },
+                    "Session": session_context,
+                }
+
+                if "Fan-out" in event:
+                    next_fof = run_fanout_modifiers(event)
+                    payload["Fan-out"] = next_fof
+
+                http_invoke_async(cont["Name"], payload)
+
+            else:
+                if "Wait" in config["NextInput"]["Fan-in"] and config["NextInput"]["Fan-in"]["Wait"]:
+                    while True:
+                        if my_return_value_store.check_values_exist(session_context, expanded_names):
+                            payload = {
+                                "Data": {
+                                    "Source": my_return_value_store.my_type,
+                                    "Value": expanded_names
+                                },
+                                "Session": session_context,
+                            }
+
+                            if "Fan-out" in event:
+                                next_fof = run_fanout_modifiers(event)
+                                payload["Fan-out"] = next_fof
+
+                            http_invoke_async(cont["Name"], payload)
+
+                        time.sleep(1)
+                else:
+                    return
+
 
         elif isinstance(config["Next"], list):
             # TODO
