@@ -21,6 +21,7 @@ An unum configuration is a JSON file with the following fields:
 
 ```
 {
+	"Name": "ThisFunctionName",
     "Next":
         {
                 "Name": "FunctionName",
@@ -50,6 +51,7 @@ An unum configuration is a JSON file with the following fields:
                     "ExplicitPointerName",
                     "GlobPattern"
                 ],
+                "Wait": true | false
             }
         },
     "Fan-out Modifiers" :
@@ -108,6 +110,32 @@ Or it could contain unum runtime variables and glob patterns such as
 2. `F-unumIndex-$1.0-output.json`
 
 See the [unum Runtime Documentation](https://github.com/LedgeDash/unum-compiler/blob/main/docs/runtime.md) for more details on function return value naming conventions, unum runtime variables and glob patters.
+
+The `Wait` field in `Fan-in` controls whether the function will wait until all values in the `Values` field become available. If  `Wait` is true, the function will keep waiting until either all values become available or timeout by the FaaS system. While waiting, the function periodically checks the values' existence. When all values becomes available, it invokes the continuation. If `Wait` is false, the function will check only once if all values are available. If they are, the function will invoke the continuation; if not, the function simply terminates.
+
+The `Wait` field can be used in combination with the `Conditional` field to control which function performs fan-in. For example, in a map fan-out, the fan-out function might have a configuration similar to the following
+
+```
+{
+	"Name": "FanoutFunction",
+    "Next":
+        {
+                "Name": "Fan-in Function",
+                "Conditional": "$0 == $size -1"
+        },
+    "NextInput": 
+    	{
+    		"Fan-in": {
+                "Values": [
+                    "FanoutFunction-unumIndex-*"
+                ],
+                "Wait": true
+            }
+        }
+}
+```
+
+The `"Conditional": "$0 == $size -1"` makes sure that only the last function will invoke the continuation. The `Wait: true` make sure that the last function will actually invoke the continuation regardless of its completion order relative to other fan-out function instances.
 
 ## Checkpoint
 
