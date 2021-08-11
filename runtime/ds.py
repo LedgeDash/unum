@@ -58,7 +58,7 @@ class S3Driver(ReturnValueStoreDriver):
         data = []
 
         for s3_name, p in zip(s3_names, ptr):
-            local_file_name = f'{ptr}-output.json'
+            local_file_name = f'{p}-output.json'
             self.backend.download_file(self.name, s3_name, f'/tmp/{local_file_name}')
 
             with open(f'/tmp/{local_file_name}', 'r') as f:
