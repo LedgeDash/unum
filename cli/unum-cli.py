@@ -85,6 +85,7 @@ def build(args):
     if args.template:
         print("Generating platform template ...........")
         template(args)
+        print("Done")
 
     # TODO: add azure
     platform_template_fn = "template.yaml"

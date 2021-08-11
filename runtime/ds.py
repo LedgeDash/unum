@@ -42,7 +42,7 @@ class S3Driver(ReturnValueStoreDriver):
 
         return directoryName
 
-    def read_input(self, ptr):
+    def read_input(self, session, ptr):
         ''' Given the pointer(s) in event["Data"]["Value"], read the value(s)
         from data store.
 
@@ -51,12 +51,25 @@ class S3Driver(ReturnValueStoreDriver):
 
         If any of the pointers don't exist in the bucket, this function will
         keep retrying.
+
         '''
-        
-        pass
+        s3_names = [f'{session}/{p}-output.json' for p in ptr]
+
+        data = []
+
+        for s3_name, p in zip(s3_names, ptr):
+            local_file_name = f'{ptr}-output.json'
+            self.backend.download_file(self.name, s3_name, f'/tmp/{local_file_name}')
+
+            with open(f'/tmp/{local_file_name}', 'r') as f:
+                data.append(json.loads(f.read()))
+
+        return data
 
     def check_value_exist(self, session, name):
         pass
+
+
     def check_values_exist(self, session, names):
 
         s3_names = [f'{session}/{n}-output.json' for n in names]

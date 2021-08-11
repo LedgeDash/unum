@@ -41,11 +41,13 @@ APIs
 
 
 
-`read_input(ptr)`
+`read_input(session, ptr)`
+
+used by `ingress()` to acquire the input data to the user function when data is passed via an intermediary data store.
 
 Data store pointers in the `Value` field are abstract from the unum runtime's perspective. The unum runtime pass the content of this field to the data store library and receive the actual data as return values.
 
-used by `ingress()` to acquire the input data to the user function.
+`session` is part of the API because it is abstract from the unum runtime perspective.
 
 
 
@@ -59,6 +61,11 @@ Scenarios:
 
 1. fan-in function is invoked with a list of pointers to an s3 bucket. This means that the invoker (which is a fan-out function) has seen all of the necessary files exist in s3. Can the fan-in function see the same set of files immediately?
 2. Do we have a single fan-out function invoke the fan-in function? Or do we
+
+
+
+DynamoDB lets users specify the desired consistency
+characteristics for each read request within an application. Users can specify whether a read is eventually consistent or strongly consistent. **Eventual consistency** is the default in Amazon DynamoDB.
 
 ## Eventual Consistency
 

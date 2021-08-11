@@ -61,7 +61,7 @@ def validate_input(event):
                 uerror(f'Entry function failed to create session context')
                 return False
 
-    if event["Data"]["Source"] != "http" and event["Data"]["Source"] != my_return_value_store.type:
+    if event["Data"]["Source"] != "http" and event["Data"]["Source"] != my_return_value_store.my_type:
         uerror(f'Input data need to sent via HTTP or the intermediary data store: {event["Data"]["Source"]}')
         return False
 
@@ -93,7 +93,7 @@ def ingress(event, context):
     if data["Source"] =="http":
         return data["Value"]
     else:
-        return my_return_value_store.read_input(data["Value"])
+        return my_return_value_store.read_input(event["Session"], data["Value"])
 
 
 def get_unumindex_str(fof):
@@ -198,9 +198,9 @@ def evaluate_conditional(cont, event, user_function_output):
     if "$size" in cond:
         cond = cond.replace("$size", str(event["Fan-out"]["Size"]))
     if "$0" in cond:
-        cond = cond.replace("$size", str(event["Fan-out"]["Index"]))
+        cond = cond.replace("$0", str(event["Fan-out"]["Index"]))
     if "$1" in cond:
-        cond = cond.replace("$size", str(event["Fan-out"]["Outerloop"]["Index"]))
+        cond = cond.replace("$1", str(event["Fan-out"]["Outerloop"]["Index"]))
 
     if "$ret" in cond:
         # TODO: Depending on the return value types that we want to support,
@@ -218,6 +218,7 @@ def evaluate_conditional(cont, event, user_function_output):
     
     return eval(cond)
 
+
 def expand_return_value_name(name, event):
     expanded_name= name
 
@@ -227,16 +228,24 @@ def expand_return_value_name(name, event):
         expanded_name = name.replace("$1", str(event["Fan-out"]["Outerloop"]["Index"]))
     if "*" in expanded_name:
         tmp = expanded_name
-        expanded_name = [tmp.replace("*",i) for i in range(event["Fan-out"]["Size"])]
+        expanded_name = [tmp.replace("*",str(i)) for i in range(event["Fan-out"]["Size"])]
 
     return expanded_name
 
 
-
 def expand_fanin_values(vl, event):
 
+    # expanded_names = [item for sublist in tmp for item in sublist]
+    expanded_names = []
+
     tmp = [expand_return_value_name(n, event) for n in vl]
-    expanded_names = [item for sublist in tmp for item in sublist]
+    for e in tmp:
+        if isinstance(e, list):
+            expanded_names = expanded_names+e
+        else:
+            # expanded_names = expanded_names.append(e)
+            expanded_names.append(e)
+
     return expanded_names
 
 
@@ -413,23 +422,39 @@ def egress(user_function_output, event, context):
 
             else:
                 if "Wait" in config["NextInput"]["Fan-in"] and config["NextInput"]["Fan-in"]["Wait"]:
-                    while True:
-                        if my_return_value_store.check_values_exist(session_context, expanded_names):
-                            payload = {
-                                "Data": {
-                                    "Source": my_return_value_store.my_type,
-                                    "Value": expanded_names
-                                },
-                                "Session": session_context,
-                            }
-
-                            if "Fan-out" in event:
-                                next_fof = run_fanout_modifiers(event)
-                                payload["Fan-out"] = next_fof
-
-                            http_invoke_async(cont["Name"], payload)
-
+                    # wait for all values to become available. This function
+                    # might timeout while waiting. Timeout is controlled by
+                    # the FaaS platform. unum has no control over it.
+                    count = 0
+                    while my_return_value_store.check_values_exist(session_context, expanded_names) == False:
+                        count = count+1
                         time.sleep(1)
+
+                        if count > 30:
+                            s3_names = [f'{session_context}/{n}-output.json' for n in expanded_names]
+
+                            response = my_return_value_store.backend.list_objects_v2(
+                                            Bucket=my_return_value_store.name,
+                                            Prefix=f'{session_context}/' # e.g., reducer0/
+                                        )
+                            all_keys = [e["Key"] for e in response["Contents"]]
+
+                            raise IOError(f'{my_return_value_store.check_values_exist(session_context, expanded_names)}, {expanded_names}, {all_keys}, {response}')
+
+                    if my_return_value_store.check_values_exist(session_context, expanded_names):
+                        payload = {
+                            "Data": {
+                                "Source": my_return_value_store.my_type,
+                                "Value": expanded_names
+                            },
+                            "Session": session_context,
+                        }
+
+                        if "Fan-out" in event:
+                            next_fof = run_fanout_modifiers(event)
+                            payload["Fan-out"] = next_fof
+
+                        http_invoke_async(cont["Name"], payload)
                 else:
                     return
 
