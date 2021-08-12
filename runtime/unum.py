@@ -132,7 +132,7 @@ def _run_fanout_modifier(modifier, fof):
     if fof == {}:
         return {}
     if modifier == None:
-        return
+        return fof
 
     if modifier == "Pop":
         if "OuterLoop" in fof:
@@ -351,7 +351,8 @@ def egress(user_function_output, event, context):
                 if "Fan-out" in event:
                     # payload["Fan-out"]["OuterLoop"] = event["Fan-out"]
                     next_fof = run_fanout_modifiers(event)
-                    payload["Fan-out"]["OuterLoop"] = next_fof
+                    if next_fof != {}:
+                        payload["Fan-out"]["OuterLoop"] = next_fof
 
                 uerror(payload["Session"], f'{config["Name"]}-{payload["Fan-out"]["Index"]}-nextpayload.json', payload)
 
@@ -390,7 +391,8 @@ def egress(user_function_output, event, context):
                 if "Fan-out" in event:
                     # payload["Fan-out"]["OuterLoop"] = event["Fan-out"]
                     next_fof = run_fanout_modifiers(event)
-                    payload["Fan-out"]["OuterLoop"] = next_fof
+                    if next_fof != {}:
+                        payload["Fan-out"]["OuterLoop"] = next_fof
 
                 uerror(payload["Session"], f'{config["Name"]}-{payload["Fan-out"]["Index"]}-nextpayload.json', payload)
 
