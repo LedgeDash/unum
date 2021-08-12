@@ -325,6 +325,11 @@ def egress(user_function_output, event, context):
                 next_fof = run_fanout_modifiers(event)
                 payload["Fan-out"] = next_fof
 
+            if "Fan-out" in payload:
+                uerror(payload["Session"], f'{config["Name"]}-{payload["Fan-out"]["Index"]}-nextpayload-chain.json', payload)
+            else:
+                uerror(payload["Session"], f'{config["Name"]}-nextpayload-chain.json', payload)
+
             http_invoke_async(cont["Name"], payload)
 
         elif isinstance(config["Next"], list):
@@ -354,7 +359,7 @@ def egress(user_function_output, event, context):
                     if next_fof != {}:
                         payload["Fan-out"]["OuterLoop"] = next_fof
 
-                uerror(payload["Session"], f'{config["Name"]}-{payload["Fan-out"]["Index"]}-nextpayload.json', payload)
+                uerror(payload["Session"], f'{config["Name"]}-{payload["Fan-out"]["Index"]}-nextpayload-parallel.json', payload)
 
                 http_invoke_async(cont["Name"], payload)
 
@@ -432,9 +437,13 @@ def egress(user_function_output, event, context):
 
                 if "Fan-out" in event:
                     next_fof = run_fanout_modifiers(event)
-                    payload["Fan-out"] = next_fof
+                    if next_fof != {}:
+                        payload["Fan-out"] = next_fof
 
-                uerror(payload["Session"], f'{config["Name"]}-{payload["Fan-out"]["Index"]}-nextpayload.json', payload)
+                if "Fan-out" in payload:
+                    uerror(payload["Session"], f'{config["Name"]}-{payload["Fan-out"]["Index"]}-nextpayload-fanin.json', payload)
+                else:
+                    uerror(payload["Session"], f'{config["Name"]}-nextpayload-fanin.json', payload)
 
                 http_invoke_async(cont["Name"], payload)
 
@@ -470,7 +479,13 @@ def egress(user_function_output, event, context):
 
                         if "Fan-out" in event:
                             next_fof = run_fanout_modifiers(event)
-                            payload["Fan-out"] = next_fof
+                            if next_fof != {}:
+                                payload["Fan-out"] = next_fof
+
+                        if "Fan-out" in payload:
+                            uerror(payload["Session"], f'{config["Name"]}-{payload["Fan-out"]["Index"]}-nextpayload-fanin.json', payload)
+                        else:
+                            uerror(payload["Session"], f'{config["Name"]}-nextpayload-fanin.json', payload)
 
                         http_invoke_async(cont["Name"], payload)
                 else:
