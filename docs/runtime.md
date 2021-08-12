@@ -25,7 +25,7 @@ A fan-out index is assigned to each fan-out function. When a function is not par
         "Type": "Map | Parallel",
         "Index": 1,
         "Size": 3,
-        "Outerloop": {
+        "OuterLoop": {
             "Type": "Map | Parallel",
             "Index": 2,
             "Size": 5
@@ -105,7 +105,7 @@ The session value is abstract from the unum runtime's perspective. The unum runt
 
 Added by [fan-out initiators](#configurationLanguage) to the input to their fan-out functions.
 
-With nested fan-outs, the existing `Fan-out` field from the input is moved to a nested `Outerloop` field. The `Fan-out` and `Outerloop` fields forms a stack structure.
+With nested fan-outs, the existing `Fan-out` field from the input is moved to a nested `OuterLoop` field. The `Fan-out` and `OuterLoop` fields forms a stack structure.
 
 Only function's whose `unum-config.json` has `Fan-out Cancel: True` can pop the top-level `Fan-out` field from *its input* when preparing *input for its invokee*. Otherwise, the function has to propagate the `Fan-out` field to its invokee *as is*.
 
@@ -890,7 +890,7 @@ A's `unum-config.json`
         "Type": "Map | Parallel",
         "Index": 1,
         "Size": 3,
-        "Outerloop": {
+        "OuterLoop": {
             "Type": "Map | Parallel",
             "Index": 2,
             "Size": 5
@@ -967,7 +967,7 @@ B's input to D
         "Type": "Parallel",
         "Index": 0,
         "Size": 2,
-        "Outerloop": {
+        "OuterLoop": {
             "Type": "Parallel",
             "Index": 0,
             "Size": 2
@@ -992,7 +992,7 @@ B's input to E
         "Type": "Parallel",
         "Index": 1,
         "Size": 2,
-        "Outerloop": {
+        "OuterLoop": {
             "Type": "Parallel",
             "Index": 0,
             "Size": 2
@@ -1026,7 +1026,7 @@ C's input to F
         "Type": "Parallel",
         "Index": 0,
         "Size": 2,
-        "Outerloop": {
+        "OuterLoop": {
             "Type": "Parallel",
             "Index": 1,
             "Size": 2
@@ -1051,7 +1051,7 @@ C's input to G
         "Type": "Parallel",
         "Index": 1,
         "Size": 2,
-        "Outerloop": {
+        "OuterLoop": {
             "Type": "Parallel",
             "Index": 1,
             "Size": 2
@@ -1111,7 +1111,7 @@ E's input to H
         "Type": "Parallel",
         "Index": 1,
         "Size": 2,
-        "Outerloop": {
+        "OuterLoop": {
             "Type": "Parallel",
             "Index": 0,
             "Size": 2
@@ -1137,7 +1137,7 @@ Alternatively,
         "Type": "Parallel",
         "Index": 1,
         "Size": 2,
-        "Outerloop": {
+        "OuterLoop": {
             "Type": "Parallel",
             "Index": 0,
             "Size": 2
@@ -1146,7 +1146,7 @@ Alternatively,
 }
 ```
 
-The unum runtime will expand $1 to 0 based on the `Outerloop[Size]` value.
+The unum runtime will expand $1 to 0 based on the `OuterLoop[Size]` value.
 
 H's `unum-config.json`
 

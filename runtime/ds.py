@@ -86,6 +86,22 @@ class S3Driver(ReturnValueStoreDriver):
 
         return True
 
+
+    def write_error(self, session, name, msg):
+        ''' Save an error message
+        @session
+        @name str name of the s3 file
+        @msg json-serializable
+
+        '''
+        local_file_path = f'/tmp/{name}'
+        with open(local_file_path, 'w') as f:
+            f.write(json.dumps(msg))
+
+        self.backend.upload_file(local_file_path,
+                                 self.name,
+                                 f'{session}/{name}')
+
     def write_return_value(self, session, ret_name, ret):
         ''' Write a user function's return value to the s3 bucket
 
