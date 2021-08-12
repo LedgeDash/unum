@@ -51,7 +51,7 @@ An unum configuration is a JSON file with the following fields:
                     "ExplicitPointerName",
                     "GlobPattern"
                 ],
-                "Wait": true | false
+            "Wait": true | false
             }
         },
     "Fan-out Modifiers" :

@@ -105,9 +105,9 @@ def get_unumindex_str(fof):
 def get_my_return_value_name(fof):
     if fof != {} and fof != None:
         idx = get_unumindex_str(fof)
-        return my_function_name+"-unumIndex-"+idx+"-output"
+        return my_function_name+"-unumIndex-"+idx
     else:
-        return my_function_name+"-output"
+        return my_function_name
 
 
 def _run_fanout_modifier(modifier, fof):

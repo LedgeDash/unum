@@ -93,7 +93,7 @@ class S3Driver(ReturnValueStoreDriver):
         @param ret_name the s3 file name
         @param ret the user function's return value
         '''
-        fn = f'{ret_name}.json'
+        fn = f'{ret_name}-output.json'
         local_file_path = '/tmp/'+fn
         with open(local_file_path, 'w') as f:
             f.write(json.dumps(ret))
