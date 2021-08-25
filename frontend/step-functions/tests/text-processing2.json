@@ -1,0 +1,46 @@
+{
+  "StartAt": "Parallel",
+  "States": {
+    "Parallel": {
+      "Type": "Parallel",
+      "Next": "CreatePost",
+      "Branches": [
+        {
+          "StartAt": "FindUrl",
+          "States": {
+            "FindUrl": {
+              "Type": "Task",
+              "Resource": "FindUrl",
+              "Next": "ShortenUrl"
+            },
+            "ShortenUrl": {
+                "Type": "Task",
+                "Resource": "ShortenUrl",
+                "End":true
+            }
+          }
+        },
+        {
+          "StartAt": "UserMention",
+          "States": {
+            "UserMention": {
+              "Type": "Task",
+              "Resource": "UserMention",
+              "End": true
+            }
+          }
+        }
+      ]
+    },
+    "CreatePost" : {
+        "Type": "Task",
+        "Resource": "CreatePost",
+        "Next": "Publish"
+    },
+    "Publish": {
+        "Type": "Task",
+        "Resource": "Publish",
+        "End":true
+    }
+  }
+}
