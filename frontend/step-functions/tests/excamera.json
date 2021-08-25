@@ -1,0 +1,62 @@
+{
+  "Comment": "ExCamera",
+  "StartAt": "vpxenc And xcdec",
+
+  "States": {
+
+    "vpxenc And xcdec": {
+      "Type": "Map",
+      "ItemsPath": "$.chunks",
+      "ResultPath": "$",
+      "MaxConcurrency": 0,
+      "Next": "Group",
+      "Iterator": {
+        "StartAt": "vpxenc",
+
+        "States": {
+
+          "vpxenc": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:us-west-1:746167823857:function:excamera-stepfunction-basic-vpxenc",
+            "Next": "xcdec"
+          },
+          "xcdec": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:us-west-1:746167823857:function:excamera-stepfunction-basic-xcdec",
+            "End": true
+          }
+
+        }
+      }
+    },
+    "Group": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-west-1:746167823857:function:excamera-stepfunction-basic-group",
+      "Next": "Re-encode"
+    },
+    "Re-encode": {
+      "Type": "Map",
+      "ItemsPath": "$",
+      "ResultPath": "$",
+      "MaxConcurrency": 0,
+      "Next": "Rebase",
+      "Iterator": {
+        "StartAt": "xcenc Replace Key Frame",
+
+        "States": {
+          "xcenc Replace Key Frame": {
+            "Type": "Task",
+            "Resource": "arn:aws:lambda:us-west-1:746167823857:function:excamera-stepfunction-basic-reencode",
+            "End": true
+          }
+        }
+      }
+    },
+    "Rebase": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-west-1:746167823857:function:excamera-stepfunction-basic-rebase",
+      "End": true
+    }
+  }
+}
+

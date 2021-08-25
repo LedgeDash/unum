@@ -1,0 +1,66 @@
+{
+    "StartAt": "Check Stock Price",
+    "Comment": "An example of itegrating lambda functtions in Step Functions state machine.",
+    "States": {
+        "Check Stock Price": {
+            "Type": "Task",
+            "Resource": "<CHECK_STOCK_PRICE_LAMBDA_ARN>",
+            "Next": "Generate Buy/Sell recommendation"
+        },
+        "Generate Buy/Sell recommendation": {
+            "Type": "Task",
+            "Resource": "<GENERATE_BUY_SELL_RECOMMENDATION_LAMBDA_ARN>",
+            "ResultPath": "$.recommended_type",
+            "Next": "Request Human Approval"
+        },
+        "Request Human Approval": {
+            "Type": "Task",
+            "Resource": "arn:<PARTITION>:states:::sqs:sendMessage.waitForTaskToken",
+            "Parameters": {
+                "QueueUrl": "<REQUEST_HUMAN_APPROVAL_SQS_URL>",
+                "MessageBody": {
+                    "Input.$": "$",
+                    "TaskToken.$": "$$.Task.Token"
+                }
+            },
+            "ResultPath": null,
+            "Next": "Buy or Sell?"
+        },
+        "Buy or Sell?": {
+            "Type": "Choice",
+            "Choices": [
+                {
+                    "Variable": "$.recommended_type",
+                    "StringEquals": "buy",
+                    "Next": "Buy Stock"
+                },
+                {
+                    "Variable": "$.recommended_type",
+                    "StringEquals": "sell",
+                    "Next": "Sell Stock"
+                }
+            ]
+        },
+        "Buy Stock": {
+            "Type": "Task",
+            "Resource": "<BUY_STOCK_LAMBDA_ARN>",
+            "Next": "Report Result"
+        },
+        "Sell Stock": {
+            "Type": "Task",
+            "Resource": "<SELL_STOCK_LAMBDA_ARN>",
+            "Next": "Report Result"
+        },
+        "Report Result": {
+            "Type": "Task",
+            "Resource": "arn:<PARTITION>:states:::sns:publish",
+            "Parameters": {
+                "TopicArn": "<REPORT_RESULT_SNS_TOPIC_ARN>",
+                "Message": {
+                    "Input.$": "$"
+                }
+            },
+            "End": true
+        }
+    }
+}
