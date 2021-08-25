@@ -1,0 +1,16 @@
+{
+  "Comment": "hello world functions",
+  "StartAt": "Hello",
+  "States": {
+    "Hello": {
+      "Type": "Task",
+      "Resource": "Hello",
+      "Next": "World"
+    },
+    "World": {
+      "Type": "Task",
+      "Resource": "World",
+      "End": true
+    }
+  }
+}

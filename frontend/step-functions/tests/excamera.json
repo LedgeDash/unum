@@ -17,12 +17,12 @@
 
           "vpxenc": {
             "Type": "Task",
-            "Resource": "arn:aws:lambda:us-west-1:746167823857:function:excamera-stepfunction-basic-vpxenc",
+            "Resource": "vpxenc",
             "Next": "xcdec"
           },
           "xcdec": {
             "Type": "Task",
-            "Resource": "arn:aws:lambda:us-west-1:746167823857:function:excamera-stepfunction-basic-xcdec",
+            "Resource": "xcdec",
             "End": true
           }
 
@@ -31,7 +31,7 @@
     },
     "Group": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:us-west-1:746167823857:function:excamera-stepfunction-basic-group",
+      "Resource": "Group",
       "Next": "Re-encode"
     },
     "Re-encode": {
@@ -41,12 +41,12 @@
       "MaxConcurrency": 0,
       "Next": "Rebase",
       "Iterator": {
-        "StartAt": "xcenc Replace Key Frame",
+        "StartAt": "Reencode",
 
         "States": {
-          "xcenc Replace Key Frame": {
+          "Reencode": {
             "Type": "Task",
-            "Resource": "arn:aws:lambda:us-west-1:746167823857:function:excamera-stepfunction-basic-reencode",
+            "Resource": "Reencode",
             "End": true
           }
         }
@@ -54,7 +54,7 @@
     },
     "Rebase": {
       "Type": "Task",
-      "Resource": "arn:aws:lambda:us-west-1:746167823857:function:excamera-stepfunction-basic-rebase",
+      "Resource": "Rebase",
       "End": true
     }
   }
