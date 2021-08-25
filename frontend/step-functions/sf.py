@@ -79,12 +79,16 @@ def _get_parallel_continuation(state):
         branch_continuation = _get_continuation(entry_state)
         if branch_continuation["NextInput"] == "Scalar":
             # the state is of type "Task"
-            cnts = cnts.append(branch_continuation)
+            cnts.append(branch_continuation)
         elif branch_continuation["NextInput"] == "Map":
             pass
         else:
             pass
-
+    ret = {"Next":[], "NextInput": cnts[0]["NextInput"]}
+    for c in cnts:
+    	ret["Next"].append(c["Next"])
+    print(ret)
+    return ret
 
 def _get_continuation(state):
     ''' Given a state, return the continuation into it. State here can be a
