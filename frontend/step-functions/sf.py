@@ -9,7 +9,8 @@ except ImportError:
 
 from cfn_tools import load_yaml, dump_yaml
 
-
+unum_map_counter = 0
+unum_parallel_counter = 0
 
 def lambda_state(state):
     if ':' not in state["Resource"]:
@@ -61,9 +62,13 @@ def _get_map_continuation(state):
                 "NextInput": "Map"
             }
     elif entry_state["Type"] == "Parallel":
-        pass
+        parallel_cnt = _get_parallel_continuation(entry_state)
+        if parallel_cnt["NextInput"] == "Map":
+            pass
+        #TODO
     elif entry_state["Type"] == "Map":
-        pass
+        # This case doesn't make sense
+        return None
     elif entry_state["Type"] == "Choice":
         pass
 
@@ -81,12 +86,12 @@ def _get_parallel_continuation(state):
             # the state is of type "Task"
             cnts.append(branch_continuation)
         elif branch_continuation["NextInput"] == "Map":
-            pass
+            cnts.append(branch_continuation)
         else:
             pass
     ret = {"Next":[], "NextInput": cnts[0]["NextInput"]}
     for c in cnts:
-    	ret["Next"].append(c["Next"])
+        ret["Next"].append(c["Next"])
     print(ret)
     return ret
 
@@ -183,20 +188,150 @@ def translate_state(state_name, state_machine):
     else:
         raise ValueError(f'Unknown State type')
 
-def translate_state_machine(state_machine):
-    # entry_state = state_machine["States"][state_machine["StartAt"]]
-    ir = []
-    for state_name in state_machine["States"]:
-        print(f'IR: {ir}')
-        print(f'state_name:{state_name}')
-        c = translate_state(state_name, state_machine)
-        print(f'config: {c}')
-        if isinstance(c, list):
-            ir = ir + c
-        elif isinstance(c, dict):
-            ir.append(c)
-    return ir
 
+def _translate_state_machine(state_name, state_machine):
+    ''' Given a state, compute the IR, Entry function's config and exit
+    function's config for the downstream state machine
+    '''
+
+    state = state_machine["States"][state_name]
+    ir = []
+
+    if state["Type"] == "Task":
+        unum_function_name = get_state_unum_function_name(state)
+        # print(f'{state_name}: {state}\nFunction name: {unum_function_name}')
+        if "End" in state and state["End"] == True:
+
+            config = {"Name": unum_function_name}
+            ir.append(config)
+            return {
+                "State Name": state_name,
+                "unum IR": ir,
+                "Entry unum function": config,
+                "Exit unum function": config
+            }
+
+        elif "Next" in state:
+
+            next_state = _translate_state_machine(state["Next"], state_machine)
+
+            config = {
+                "Name": unum_function_name,
+                "Next": next_state["Entry unum function"]["Name"],
+                "NextInput":"Scalar"
+            }
+
+            ir.append(config)
+            ir = ir + next_state["unum IR"]
+
+            return {
+                "State Name": state_name,
+                "unum IR": ir,
+                "Entry unum function": config,
+                "Exit unum function": next_state["Exit unum function"]
+            }
+        else:
+            raise
+
+    elif state["Type"] == "Map":
+
+        iterator = translate_state_machine(state["Iterator"])
+
+        unum_map = {
+            "Name": f'UnumMap{unum_map_counter}',
+            "Next": iterator["Entry unum function"]["Name"],
+            "NextInput": "Map"
+        }
+
+        unum_map_sink = {
+            "Name": f'UnumMapSink{unum_map_counter}'
+        }
+        unum_map_counter = unum_map_counter + 1
+
+        iterator["Exit unum function"]["Next"] = unum_map_sink["Name"]
+        iterator["Exit unum function"]["NextInput"] = {
+            "Fan-in": {
+                "Values": [
+                    f'{iterator["Exit unum function"]["Name"]}-unumIndex-*'
+                ]
+            }
+        }
+
+        ir.append(unum_map)
+        ir = ir + iterator["unum IR"]
+        ir.append(unum_map_sink)
+
+        if "Next" in state:
+            next_state = _translate_state_machine(state["Next"], state_machine)
+            unum_map_sink["Next"] = next_state["Entry unum function"]["Name"]
+            unum_map_sink["NextInput"] = "Scalar"
+            ir = ir + next_state["unum IR"]
+            return {
+                "State Name": state_name,
+                "unum IR": ir,
+                "Entry unum function": unum_map,
+                "Exit unum function": next_state["Exit unum function"]
+            }
+        else:
+            return {
+                "State Name": state_name,
+                "unum IR": ir,
+                "Entry unum function": unum_map,
+                "Exit unum function": unum_map_sink
+            }
+
+
+    elif state["Type"] == "Parallel":
+        branches = [translate_state_machine(b) for b in state["Branches"]]
+        unum_parallel = {
+            "Name": f'UnumParallel{unum_parallel_counter}',
+            "Next": [b["Entry unum function"]["Name"] for b in branches],
+            "NextInput":"Scalar"
+        }
+        unum_parallel_sink = {
+            "Name": f'UnumParallelSink{unum_parallel_counter}'
+        }
+        ir.append(unum_parallel)
+        for b in branches:
+            ir = ir + b["unum IR"]
+
+        ir.append(unum_parallel_sink)
+
+        if "Next" in state:
+            next_state = _translate_state_machine(state["Next"], state_machine)
+            unum_parallel_sink["Next"] = next_state["Entry unum function"]["Name"]
+            unum_parallel_sink["NextInput"] = "Scalar"
+            ir = ir + next_state["unum IR"]
+            return {
+                "State Name": state_name,
+                "unum IR": ir,
+                "Entry unum function": unum_parallel,
+                "Exit unum function": next_state["Exit unum function"]
+            }
+        else:
+            return {
+                "State Name": state_name,
+                "unum IR": ir,
+                "Entry unum function": unum_parallel,
+                "Exit unum function": unum_parallel_sink
+            }
+
+
+def translate_state_machine(state_machine):
+    ''' Given a state machine, return its IR, entry state and end state
+
+    A state machine = A Step Function state machine, a Map State, a Parallel
+    State
+    '''
+    # entry_state = state_machine["States"][state_machine["StartAt"]]
+
+    states = state_machine["States"]
+    entry_state_name = state_machine["StartAt"]
+    entry_state = states[entry_state_name]
+
+    ret = _translate_state_machine(entry_state_name, state_machine)
+
+    return ret
 
 
 def main():
@@ -219,24 +354,15 @@ def main():
     print(state_machine)
     ir = translate_state_machine(state_machine)
 
-    # Handle the start state
-    entry_state = state_machine["States"][state_machine["StartAt"]]
-    if entry_state["Type"] == "Map":
-        pass
-    elif entry_state["Type"] == "Parallel":
-        pass
-    elif entry_state["Type"] == "Choice":
-        pass
-    else:
-        pass
 
     # Add global configurations from unum-template.yaml
     with open(args.template) as f:
         template = load_yaml(f.read())
 
-    for c in ir:
+    for c in ir["unum IR"]:
         c["Checkpoint"] = template["Globals"]["Checkpoint"]
 
-    print(f'Final IR: {ir}')
+    print("**************** IR ***************")
+    print(f'{ir}')
 if __name__ == '__main__':
     main()
