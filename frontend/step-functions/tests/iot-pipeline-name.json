@@ -1,6 +1,6 @@
 {
   "Comment": "hvac sensor and controller iot workflow",
-  "StartAt": "aggregator",
+  "StartAt": "Aggregator",
   "States": {
     "Aggregator": {
       "Type": "Task",
