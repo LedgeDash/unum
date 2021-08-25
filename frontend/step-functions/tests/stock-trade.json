@@ -4,12 +4,12 @@
     "States": {
         "Check Stock Price": {
             "Type": "Task",
-            "Resource": "<CHECK_STOCK_PRICE_LAMBDA_ARN>",
+            "Resource": "StockPrice",
             "Next": "Generate Buy/Sell recommendation"
         },
         "Generate Buy/Sell recommendation": {
             "Type": "Task",
-            "Resource": "<GENERATE_BUY_SELL_RECOMMENDATION_LAMBDA_ARN>",
+            "Resource": "Recommendation",
             "ResultPath": "$.recommended_type",
             "Next": "Request Human Approval"
         },

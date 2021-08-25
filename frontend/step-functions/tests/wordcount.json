@@ -1,0 +1,54 @@
+{
+  "Comment": "MapReduce wordcount with fixed number of reducers",
+  "StartAt": "Count",
+  "States": {
+
+    "Count": {
+      "Type": "Map",
+      "ItemsPath": "$.data",
+      "MaxConcurrency": 0,
+      "Next": "Partition",
+
+      "Iterator": {
+        "StartAt": "Mapper",
+        "States": {
+          "Mapper": {
+            "Type": "Task",
+            "Resource": "Mapper",
+            "End": true
+          }
+        }
+      }
+    },
+
+    "Partition": {
+      "Type": "Task",
+      "Resource": "Partition",
+      "Next": "Reduce"
+    },
+
+    "Reduce": {
+      "Type": "Map",
+      "ItemsPath": "$",
+      "MaxConcurrency": 0,
+      "Next": "Summary",
+
+      "Iterator": {
+        "StartAt": "Reducer",
+        "States": {
+          "Reducer": {
+            "Type": "Task",
+            "Resource": "Reducer",
+            "End": true
+          }
+        }
+      }
+    },
+
+    "Summary": {
+      "Type": "Task",
+      "Resource": "Summary",
+      "End": true
+    }
+  }
+}

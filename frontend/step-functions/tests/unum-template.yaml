@@ -1,6 +1,0 @@
-Globals:
-  ApplicationName: unum-hello-world-chain
-  UnumIntermediaryDataStoreType: s3
-  UnumIntermediaryDataStoreName: unum-return-value-store
-  Checkpoint: true
-

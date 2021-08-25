@@ -11,7 +11,7 @@
           "States": {
             "Thumbnail": {
               "Type": "Task",
-              "Resource": "arn:aws:lambda:us-west-1:746167823857:function:image-process-ThumbnailFunction-ceYvWOoBvaab",
+              "Resource": "Thumbnail",
               "End": true
             }
           }
@@ -21,7 +21,7 @@
           "States": {
             "FaceDetection": {
               "Type": "Task",
-              "Resource": "arn:aws:lambda:us-west-1:746167823857:function:image-process-FaceDetectionFunction-lt3j50wRfXub",
+              "Resource": "FaceDetection",
                 "End": true
             }
           }
