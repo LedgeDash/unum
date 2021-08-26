@@ -163,14 +163,17 @@ def deploy_sam_first():
         d = yaml.dump(function_to_arn_mapping, Dumper=Dumper)
         f.write(d)
 
+    print(f'function-arn.yaml created')
+
     # update each function's unum_config.json by replacing function names with
     # arns in the continuation
     for f in app_template["Functions"]:
         app_dir = app_template["Functions"][f]["Properties"]["CodeUri"]
+        print(f'Updating function {f} in {app_dir}')
 
         with open(f'{app_dir}unum_config.json', 'r+') as c:
             config = json.loads(c.read())
-
+            print(f'Overwriting {app_dir}unum_config.json')
             if "Next" in config:
                 if isinstance(config["Next"],dict):
                     config["Next"]["Name"] = function_to_arn_mapping[config["Next"]["Name"]]
@@ -180,6 +183,7 @@ def deploy_sam_first():
                 c.seek(0)
                 c.write(json.dumps(config))
                 c.truncate()
+                print(f'{app_dir}unum_config.json Updated')
 
 
 def deploy_sam(args):

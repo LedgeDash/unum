@@ -77,7 +77,7 @@ def _translate_state_machine(state_name, state_machine):
 
             config = {
                 "Name": unum_function_name,
-                "Next": next_state["Entry unum function"]["Name"],
+                "Next": {"Name": next_state["Entry unum function"]["Name"]},
                 "NextInput":"Scalar"
             }
 
@@ -99,7 +99,7 @@ def _translate_state_machine(state_name, state_machine):
         global unum_map_counter
         unum_map = {
             "Name": f'UnumMap{unum_map_counter}',
-            "Next": iterator["Entry unum function"]["Name"],
+            "Next": {"Name": iterator["Entry unum function"]["Name"]},
             "NextInput": "Map"
         }
 
@@ -108,7 +108,7 @@ def _translate_state_machine(state_name, state_machine):
         }
         unum_map_counter = unum_map_counter + 1
 
-        iterator["Exit unum function"]["Next"] = unum_map_sink["Name"]
+        iterator["Exit unum function"]["Next"] = {"Name": unum_map_sink["Name"]}
         iterator["Exit unum function"]["NextInput"] = {
             "Fan-in": {
                 "Values": [
@@ -123,7 +123,7 @@ def _translate_state_machine(state_name, state_machine):
 
         if "Next" in state:
             next_state = _translate_state_machine(state["Next"], state_machine)
-            unum_map_sink["Next"] = next_state["Entry unum function"]["Name"]
+            unum_map_sink["Next"] = {"Name": next_state["Entry unum function"]["Name"]}
             unum_map_sink["NextInput"] = "Scalar"
             ir = ir + next_state["unum IR"]
             return {
@@ -146,7 +146,7 @@ def _translate_state_machine(state_name, state_machine):
         global unum_parallel_counter
         unum_parallel = {
             "Name": f'UnumParallel{unum_parallel_counter}',
-            "Next": [b["Entry unum function"]["Name"] for b in branches],
+            "Next": [{"Name": b["Entry unum function"]["Name"]} for b in branches],
             "NextInput":"Scalar"
         }
         ir.append(unum_parallel)
@@ -163,13 +163,13 @@ def _translate_state_machine(state_name, state_machine):
                     "Values": parallel_fan_in_vals
                 }
             }
-            b["Exit unum function"]["Next"] = unum_parallel_sink["Name"]
+            b["Exit unum function"]["Next"] = {"Name": unum_parallel_sink["Name"]}
 
         ir.append(unum_parallel_sink)
 
         if "Next" in state:
             next_state = _translate_state_machine(state["Next"], state_machine)
-            unum_parallel_sink["Next"] = next_state["Entry unum function"]["Name"]
+            unum_parallel_sink["Next"] = {"Name": next_state["Entry unum function"]["Name"]}
             unum_parallel_sink["NextInput"] = "Scalar"
             ir = ir + next_state["unum IR"]
             return {
@@ -216,7 +216,7 @@ def main():
     parser.add_argument('-p', '--print',
         help="print the generate IR to stdout", action="store_true", required=False)
     parser.add_argument('-u', '--update',
-        help="update the function's unum-config", action="store_true", required=False)
+        help="update the function's unum_config", action="store_true", required=False)
 
     args = parser.parse_args()
 
@@ -249,7 +249,7 @@ def main():
         for config in ir["unum IR"]:
             if config["Name"] in template["Functions"]:
                 function_dir = os.path.join(workflow_dir, template["Functions"][config["Name"]]["Properties"]["CodeUri"])
-                with open(os.path.join(function_dir, 'unum-config.json'), 'w') as f:
+                with open(os.path.join(function_dir, 'unum_config.json'), 'w') as f:
                     f.write(json.dumps(config))
 
             elif config["Name"].startswith("UnumMap") or config["Name"].startswith("UnumParallel"):
@@ -262,7 +262,7 @@ def main():
                     }
 
                 # create the directory and inside the directory, create
-                # unum-config.json, __init__.py, requirements.txt and app.py
+                # unum_config.json, __init__.py, requirements.txt and app.py
                 function_dir = os.path.join(workflow_dir, f'{config["Name"]}/')
                 try:
                     os.mkdir(function_dir)
@@ -275,7 +275,7 @@ def main():
                     pass
                 with open(os.path.join(function_dir, 'app.py'), 'w') as f:
                     f.write(PASS_FUNCTION)
-                with open(os.path.join(function_dir, 'unum-config.json'), 'w') as f:
+                with open(os.path.join(function_dir, 'unum_config.json'), 'w') as f:
                     f.write(json.dumps(config))
 
         with open(os.path.join(workflow_dir, 'unum-template-new.yaml'), 'w') as f:
