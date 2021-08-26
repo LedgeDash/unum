@@ -12,6 +12,8 @@ from cfn_tools import load_yaml, dump_yaml
 unum_map_counter = 0
 unum_parallel_counter = 0
 
+PASS_FUNCTION = "def lambda_handler(event, context):\n    return event"
+
 def lambda_state(state):
     if ':' not in state["Resource"]:
         return True
@@ -211,21 +213,23 @@ def main():
         help="Step Functions state machine", required=True)
     parser.add_argument('-t', '--template',
         help="unum template", required=True)
+    parser.add_argument('-p', '--print',
+        help="print the generate IR to stdout", action="store_true", required=False)
+    parser.add_argument('-u', '--update',
+        help="update the function's unum-config", action="store_true", required=False)
 
     args = parser.parse_args()
-
-    print(args.workflow)
 
     with open(args.workflow) as f:
         state_machine = json.loads(f.read())
 
-    print(state_machine)
     ir = translate_state_machine(state_machine)
 
 
     # Add global configurations from unum-template.yaml
     with open(args.template) as f:
         template = load_yaml(f.read())
+        # print(template)
 
     for c in ir["unum IR"]:
         if "NextInput" in c and "Fan-in" in c["NextInput"]:
@@ -233,7 +237,50 @@ def main():
         else:
             c["Checkpoint"] = template["Globals"]["Checkpoint"]
 
-    print("**************** IR ***************")
-    print(f'{ir}')
+    # mark the start function
+    ir["Entry unum function"]["Start"] = True
+
+    if args.print:
+        print("**************** IR ***************")
+        print(f'{ir}')
+
+    if args.update:
+        workflow_dir = os.path.dirname(args.template)
+        for config in ir["unum IR"]:
+            if config["Name"] in template["Functions"]:
+                function_dir = os.path.join(workflow_dir, template["Functions"][config["Name"]]["Properties"]["CodeUri"])
+                with open(os.path.join(function_dir, 'unum-config.json'), 'w') as f:
+                    f.write(json.dumps(config))
+
+            elif config["Name"].startswith("UnumMap") or config["Name"].startswith("UnumParallel"):
+                # update the template
+                template["Functions"][config["Name"]] = {
+                    'Properties': {
+                        "CodeUri": f'{config["Name"]}/',
+                        "Runtime": "python3.8"
+                        }
+                    }
+
+                # create the directory and inside the directory, create
+                # unum-config.json, __init__.py, requirements.txt and app.py
+                function_dir = os.path.join(workflow_dir, f'{config["Name"]}/')
+                try:
+                    os.mkdir(function_dir)
+                except FileExistsError as e:
+                    pass
+
+                with open(os.path.join(function_dir, '__init__.py'), 'w') as f:
+                    pass
+                with open(os.path.join(function_dir, 'requirements.txt'), 'w') as f:
+                    pass
+                with open(os.path.join(function_dir, 'app.py'), 'w') as f:
+                    f.write(PASS_FUNCTION)
+                with open(os.path.join(function_dir, 'unum-config.json'), 'w') as f:
+                    f.write(json.dumps(config))
+
+        with open(os.path.join(workflow_dir, 'unum-template-new.yaml'), 'w') as f:
+            f.write(dump_yaml(template))
+
+
 if __name__ == '__main__':
     main()

@@ -1,3 +1,14 @@
+# Get Started
+
+```bash
+./sf.py -t tests/test-template.yaml -w tests/wordcount.json
+```
+
+```
+-p --print print the computed IR to STDOUT
+-u --update update generate unum-config.json files
+```
+
 Typical SF state that invokes a Lambda:
 
 ```json
@@ -38,96 +49,4 @@ The `StateName` is entirely ignored.
 
 All `Task` states are assumed to be Lambda functions.
 
-# Cases where the Step Functions compiler adds functions
 
-## Starts with a Map State
-
-Inputs to the Map state are arrays. For each element of the array, the Map state invokes one parallel instance of the `Iterator`.
-
-An example from excamera:
-
-```json
-"vpxenc and xcdec": {
-  "Type": "Map",
-  "ItemsPath": "$.chunks",
-  "ResultPath": "$",
-  "MaxConcurrency": 0,
-  "Next": "Group",
-  "Iterator": {
-    "StartAt": "vpxenc",
-    "States": {
-      "vpxenc": {
-        "Type": "Task",
-        "Resource": "arn:aws:lambda:us-west-1:746167823857:function:excamera-stepfunction-basic-vpxenc",
-        "Next": "xcdec"
-      },
-      "xcdec": {
-        "Type": "Task",
-        "Resource": "arn:aws:lambda:us-west-1:746167823857:function:excamera-stepfunction-basic-xcdec",
-        "End": true
-      }
-
-    }
-  }
-}
-```
-
-
-
-We can't do any tricks on the first function of the `Iterator` to achieve the Map state's behavior. It seems to me that the only option is to add a function that serves as the fan-out initiator. It accepts arrays, does nothing and simply returns them. Its `unum-config.json` will have `NextInput: Map` so that the unum runtime will invoke an instance of the `Next` function for each element of the array.
-
-In essence, we're transforming the Step Function definition to:
-
-```json
-"unum map": {
-    "Type": "Pass",
-    "Next": "vpxenc and xcdec"
-},
-"vpxenc and xcdec": {
-  "Type": "Map",
-  "ItemsPath": "$.chunks",
-  "ResultPath": "$",
-  "MaxConcurrency": 0,
-  "Next": "Group",
-  "Iterator": {
-    "StartAt": "vpxenc",
-    "States": {
-      "vpxenc": {
-        "Type": "Task",
-        "Resource": "arn:aws:lambda:us-west-1:746167823857:function:excamera-stepfunction-basic-vpxenc",
-        "Next": "xcdec"
-      },
-      "xcdec": {
-        "Type": "Task",
-        "Resource": "arn:aws:lambda:us-west-1:746167823857:function:excamera-stepfunction-basic-xcdec",
-        "End": true
-      }
-
-    }
-  }
-}
-```
-
-
-
-## Starts with a Parallel State
-
-## Starts with a Choice state
-
-
-
-
-
-# Combinations
-
-lambda -> lambda
-
-lambda-> parallel
-
-lambda->map
-
-lambda-> choice
-
-
-
-Starting with a Map state
