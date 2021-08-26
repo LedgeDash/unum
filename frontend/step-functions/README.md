@@ -1,13 +1,17 @@
 # Get Started
+To compute the unum IR from a Step Functions state machine, run:
 
 ```bash
-./sf.py -t tests/test-template.yaml -w tests/wordcount.json
+./sf.py -t <path-to-unum-template.yaml> -w <path-to-step-functions-state-machine>
 ```
 
 ```
+-t --template the unum-template.yaml for the workflow [REQUIRED]
+-w --workflow the Step Functions definition of the workflow [REQUIRED]
 -p --print print the computed IR to STDOUT
 -u --update update generate unum-config.json files
 ```
+# How the Transformation is Done (wip)
 
 Typical SF state that invokes a Lambda:
 
