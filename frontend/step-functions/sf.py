@@ -104,7 +104,7 @@ def _translate_state_machine(state_name, state_machine):
         }
 
         unum_map_sink = {
-            "Name": f'UnumMapSink{unum_map_counter}'
+            "Name": f'UnumSinkMap{unum_map_counter}'
         }
         unum_map_counter = unum_map_counter + 1
 
@@ -152,7 +152,7 @@ def _translate_state_machine(state_name, state_machine):
         ir.append(unum_parallel)
 
         unum_parallel_sink = {
-            "Name": f'UnumParallelSink{unum_parallel_counter}'
+            "Name": f'UnumSinkParallel{unum_parallel_counter}'
         }
         unum_parallel_counter = unum_parallel_counter +1
         parallel_fan_in_vals = [f'{branches[i]["Exit unum function"]["Name"]}-unumIndex-{i}' for i in range(len(branches))]
@@ -203,6 +203,65 @@ def translate_state_machine(state_machine):
 
     return ret
 
+def get_config_by_name(function_name, ir):
+    for c in ir['unum IR']:
+        # print(f'{c}   {function_name}')
+        if c["Name"] == function_name:
+            return c
+
+    return None
+
+def _trim(fc, ir):
+
+    if "Next" not in fc:
+        return
+
+    # If the workflow starts with a Map or Parallel state, then the generated
+    # UnumMap or UnumParallel function needs to stay. In fact, if _trim() ever
+    # encounters a UnumMap or UnumParallel function, it should stay.
+    if fc["Name"].startswith("UnumMap") or fc["Name"].startswith("UnumParallel"):
+        # if ir["Entry unum function"] == fc:
+        #     fc["Remove"] = False
+        fc["Remove"] = False
+    else:
+        # if next is a UnumSinkMap or UnumSinkParallel that has a next
+        # function, skip the sink
+        if fc["Next"]["Name"].startswith("UnumSinkMap") or fc["Next"]["Name"].startswith("UnumSinkParallel"):
+            next_sink_config = get_config_by_name(fc["Next"]["Name"], ir)
+            if "Next" in next_sink_config and next_sink_config["NextInput"] == "Scalar":
+                fc["Next"]["Name"] = next_sink_config["Next"]["Name"]
+                next_sink_config["Remove"] = True
+
+        # when a NON-SINK function has UnumMap or UnumParallel as its next
+        # function with Scalar input, we can have the function perform the
+        # fan-out and skip the UnumMap or UnumParallel
+        elif fc["Next"]["Name"].startswith("UnumMap"):
+            next_map_config = get_config_by_name(fc["Next"]["Name"], ir)
+            if fc["NextInput"] == "Scalar":
+                fc["Next"]["Name"] = next_map_config["Next"]["Name"]
+                fc["NextInput"] = "Map"
+                next_map_config["Remove"] = True
+
+        elif fc["Next"]["Name"].startswith("UnumParallel"):
+            next_parallel_config = get_config_by_name(fc["Next"]["Name"], ir)
+            fc["Next"] = next_parallel_config["Next"]
+            next_parallel_config["Remove"] = True
+
+
+    if isinstance(fc["Next"], list):
+        for n in fc["Next"]:
+            _trim(get_config_by_name(n["Name"], ir), ir)
+    else:
+        _trim(get_config_by_name(fc["Next"]["Name"], ir), ir)
+
+def trim(ir):
+    entry_function = ir["Entry unum function"]
+    _trim(entry_function, ir)
+
+    for c in ir["unum IR"]:
+        if "Remove" in c and c["Remove"] == True:
+            ir["unum IR"].remove(c)
+    return
 
 def main():
     parser = argparse.ArgumentParser(description='unmu frontend compiler for AWS Step Functions',
@@ -217,6 +276,8 @@ def main():
         help="print the generate IR to stdout", action="store_true", required=False)
     parser.add_argument('-u', '--update',
         help="update the function's unum_config", action="store_true", required=False)
+    parser.add_argument('-o', '--optimize',
+        help="optimizations", choices=['trim', 'foo'], required=False)
 
     args = parser.parse_args()
 
@@ -239,6 +300,11 @@ def main():
 
     # mark the start function
     ir["Entry unum function"]["Start"] = True
+
+    if args.optimize == "trim":
+        print(f'Trimming IR...')
+        trim(ir)
+
 
     if args.print:
         print("**************** IR ***************")
