@@ -52,7 +52,7 @@ def http_invoke_async(function, data):
 def uerror(session, name, msg):
     ''' Write error message to datastore/session_context/errors/
     '''
-    if config["Debug"]:
+    if "Debug" in config and config["Debug"] == True:
         my_return_value_store.write_error(session, name, msg)
 
 
