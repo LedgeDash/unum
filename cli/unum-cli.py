@@ -75,7 +75,19 @@ def generate_sam_template(unum_template):
 
     return sam_template
 
-def sam_build_clean(platform_template):
+def sam_build_clean(args):
+
+    if args.platform_template == None:
+        # default AWS SAM template filename to template.yaml
+        args.platform_template = 'template.yaml'
+
+    try:
+        with open(args.platform_template) as f:
+            platform_template = load_yaml(f.read())
+    except Exception as e:
+        print(f'\033[31m\n Build Clean Failed!\n\n Make sure a platform template file exists\033[0m')
+        raise e
+
     # remove unum runtime files from each function's directory
     runtime_file_basename = os.listdir("common")
     for f in platform_template["Resources"]:
@@ -106,36 +118,59 @@ def sam_build(platform_template, args):
         subprocess.run(f'cp common/* {app_dir}', shell=True, check=True)
 
     try:
-        ret = subprocess.run(["sam", "build"], capture_output=True)
-        print(ret.stdout.decode("utf-8"))
+        ret = subprocess.run(["sam", "build"], capture_output=True, check= True)
+        print(f'\033[32mBuild Succeeded\033[0m\n')
+        print(f'\033[33mBuilt Artifacts  : .aws-sam/build\033[0m')
+        print(f'\033[33mBuilt Template   : .aws-sam/build/template.yaml\033[0m\n')
+        print(f'\033[33mCommands you can use next\n=========================\033[0m')
+        print(f'\033[33m[*] Deploy: unum-cli deploy\033[0m\n')
     except Exception as e:
-        raise OSError(f'{ret.stderr}')
+        print(f'\033[31m \n Build Failed!\n\n AWS SAM failed to build due to:')
+        raise e
     
 
 def build(args):
 
-    if args.template:
-        print("Generating platform template ...........")
-        template(args)
-        print("Done")
-
-    # TODO: add azure
-    platform_template_fn = "template.yaml"
-
-    try:
-        with open(platform_template_fn) as f:
-            # platform_template = yaml.load(f.read(), Loader=Loader)
-            platform_template = load_yaml(f.read())
-    except Exception as e:
-        print(f'Error: {platform_template_fn} not found.\nMake sure {platform_template_fn} exists in the current directory')
-        exit(1)
-
-    if "AWSTemplateFormatVersion" in platform_template:
-        sam_build(platform_template, args)
-    elif "AZure" in platform_template:
+    if args.clean:
+        if args.platform == 'aws':
+            sam_build_clean(args)
+        elif args.platform == None:
+            sam_build_clean(args)
+        elif args.platform == 'azure':
+            pass
+        else:
+            pass
         return
+
+    if args.generate:
+        print("\033[33mGenerating platform template...........\033[0m\n")
+        template(args)
+
+    if args.platform == None:
+        print(f'No target platform specified.\nDefault to \033[33m\033[1mAWS\033[0m.')
+        print(f'If AWS is not the desirable target, specify a target platform with -p or --platform.\nSee unum-cli build -h for details.\n')
+        args.platform='aws'
+
+    if args.platform == 'aws':
+        # Default to AWS
+        if args.platform_template == None:
+            print(f'No platform template file specified.\nDefault to\033[33m\033[1m template.yaml \033[0m')
+            print(f'You can specify a platform template file with -s or --platform_template.\nSee unum-cli build -h for details.\n')
+            args.platform_template = "template.yaml"
+
+        try:
+            with open(args.platform_template) as f:
+                platform_template = load_yaml(f.read())
+        except Exception as e:
+            print(f'\033[31m \n Build Failed!\n\n Make sure the platform template file exists\033[0m')
+            print(f'\033[31m You can specify a platform template file with -s/--platform_template\033[0m')
+            print(f'\033[31m Or generate a platform template from your unum template with "unum-cli template" or "unum-cli build -g"\033[0m')
+            print(f'\033[31m See unum-cli -h for more details\033[0m\n')
+            raise e
+
+        sam_build(platform_template, args)
     else:
-        raise
+        pass
 
 def deploy_sam_first():
     # Deploy the functions as is, get each function's arn, update each
@@ -307,15 +342,15 @@ def template(args):
         with open(args.template) as f:
             unum_template = yaml.load(f.read(), Loader=Loader)
     except Exception as e:
-        print(f'\033[31m Build Failed.\n Make sure the template file exists\033[0m')
+        print(f'\033[31m \n Build Failed!\n\n Make sure the template file exists\033[0m')
         raise e
 
     if args.platform == 'aws':
         platform_template = generate_sam_template(unum_template)
 
         # Save the AWS SAM template as 'template.yaml'
-        print(f'\033[32mBuild Succeeded\033[0m\n')
-        print(f'\033[33mAWS SAM Template: template.yaml\033[0m')
+        print(f'\033[32mPlatform Template Generation Succeeded\033[0m\n')
+        print(f'\033[33mAWS SAM Template: template.yaml\033[0m\n')
         try:
             with open('template.yaml','w') as f:
                 f.write(dump_yaml(platform_template))
@@ -375,8 +410,12 @@ def main():
     build_parser = subparsers.add_parser("build", description="build unum application in the current directory")
     build_parser.add_argument('-p', '--platform', choices=['aws', 'azure'],
         help="target platform", required=False)
-    build_parser.add_argument("-t", "--template", help="Generate a platform template before buliding",
+    build_parser.add_argument("-g", "--generate", help="Generate a platform template before buliding",
         required = False, action="store_true")
+    build_parser.add_argument('-t', '--template',
+        help="unum template file", required=False)
+    build_parser.add_argument('-s', '--platform_template',
+        help="platform template file", required=False)
     build_parser.add_argument("-c", "--clean", help="Remove build artifacts",
         required=False, action="store_true")
 
