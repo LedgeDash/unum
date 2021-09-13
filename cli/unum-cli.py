@@ -359,6 +359,9 @@ def main():
 
     subparsers = parser.add_subparsers(title='command', dest="command", required=True)
 
+    # init command parser
+    init_parser = subparsers.add_parser("init", description="create unum application")
+
     # template command parser
     template_parser = subparsers.add_parser("template", description="generate platform specific template")
     template_parser.add_argument('-p', '--platform', choices=['aws', 'azure'],
@@ -368,18 +371,14 @@ def main():
     template_parser.add_argument("-c", "--clean", help="Remove build artifacts",
         required=False, action="store_true")
 
-    # init command parser
-    init_parser = subparsers.add_parser("init", description="create unum application")
-
     # build command parser
     build_parser = subparsers.add_parser("build", description="build unum application in the current directory")
     build_parser.add_argument('-p', '--platform', choices=['aws', 'azure'],
-        help="target platform", required=False, default='aws')
+        help="target platform", required=False)
     build_parser.add_argument("-t", "--template", help="Generate a platform template before buliding",
-        required = False, action="store_true", default='unum-template.yaml')
+        required = False, action="store_true")
     build_parser.add_argument("-c", "--clean", help="Remove build artifacts",
         required=False, action="store_true")
-
 
     # deploy command parser
     deploy_parser = subparsers.add_parser("deploy", description="deploy unum application")
