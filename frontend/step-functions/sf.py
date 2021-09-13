@@ -193,7 +193,6 @@ def translate_state_machine(state_machine):
     A state machine = A Step Function state machine, a Map State, a Parallel
     State
     '''
-    # entry_state = state_machine["States"][state_machine["StartAt"]]
 
     states = state_machine["States"]
     entry_state_name = state_machine["StartAt"]
@@ -290,7 +289,6 @@ def main():
     # Add global configurations from unum-template.yaml
     with open(args.template) as f:
         template = load_yaml(f.read())
-        # print(template)
 
     for c in ir["unum IR"]:
         if "NextInput" in c and "Fan-in" in c["NextInput"]:
@@ -344,7 +342,10 @@ def main():
                 with open(os.path.join(function_dir, 'unum_config.json'), 'w') as f:
                     f.write(json.dumps(config))
 
-        with open(os.path.join(workflow_dir, 'unum-template-new.yaml'), 'w') as f:
+        # move the old unum-template.yaml file to .unum-template.yaml.old
+        # Save the new template as unum-template.yaml
+        os.rename(args.template, f'.{args.template}.old')
+        with open(os.path.join(workflow_dir, args.template), 'w') as f:
             f.write(dump_yaml(template))
 
 

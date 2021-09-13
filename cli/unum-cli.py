@@ -11,33 +11,65 @@ from cfn_tools import load_yaml, dump_yaml
 
 
 def generate_sam_template(unum_template):
-    ''' Given an unum template, return an AWS SAM template
+    ''' Given an unum template, return an AWS SAM template as a python dict
 
         @param unum_template python dict
 
         @return sam_template python dict
     '''
 
+    # boilerplate SAM template fields
     sam_template = {"AWSTemplateFormatVersion": '2010-09-09',
                     "Transform": "AWS::Serverless-2016-10-31"}
-    sam_template["Globals"] = {"Function":{"Environment":{"Variables":{
-                                                            "UNUM_INTERMEDIARY_DATASTORE_TYPE": unum_template["Globals"]["UnumIntermediaryDataStoreType"],
-                                                            "UNUM_INTERMEDIARY_DATASTORE_NAME": unum_template["Globals"]["UnumIntermediaryDataStoreName"],
-                                                            "CHECKPOINT":unum_template["Globals"]["Checkpoint"]
-                                                         }}}}
+
+    # save workflow-wide configurations as environment variables.
+    # Globals:
+    #   Function:
+    #       Environment:
+    #           Variables:
+    # These variables will be accessible by Lambda code as environment variables.
+    sam_template["Globals"] = {
+            "Function": {
+                "Environment": {
+                    "Variables":{
+                        "UNUM_INTERMEDIARY_DATASTORE_TYPE": unum_template["Globals"]["UnumIntermediaryDataStoreType"],
+                        "UNUM_INTERMEDIARY_DATASTORE_NAME": unum_template["Globals"]["UnumIntermediaryDataStoreName"],
+                        "CHECKPOINT":unum_template["Globals"]["Checkpoint"]
+                    }
+                }
+            }
+        }
+    # Set all Lambda timeouts to 900 sec
     sam_template["Globals"]["Function"]["Timeout"] = 900
+
+    # For each unum function, create a AWS::Serverless::Function resource in
+    # the SAM template under the "Resources" field.
+    # All unum functions "Handler" is unum.lambda_handler
+    # Copy over "CodeUri", "Runtime"
+    # Add 
+    #   + "AmazonDynamoDBFullAccess"
+    #   + "AmazonS3FullAccess"
+    #   + "AWSLambdaRole"
+    #   + "AWSLambdaBasicExecutionRole"
+    # if any is not listed already in the unum template
+    unum_function_needed_policies = ["AmazonDynamoDBFullAccess","AmazonS3FullAccess","AWSLambdaRole","AWSLambdaBasicExecutionRole"]
     sam_template["Resources"]={}
     sam_template["Outputs"] = {}
+
     for f in unum_template["Functions"]:
+        unum_function_policies = []
+        if "Policies" in unum_template["Functions"][f]["Properties"]:
+            unum_function_policies = unum_template["Functions"][f]["Properties"]["Policies"]
+
         sam_template["Resources"][f'{f}Function'] = {
-                                                         "Type":"AWS::Serverless::Function",
-                                                           "Properties": {
-                                                               "Handler":"unum.lambda_handler",
-                                                               "Runtime": unum_template["Functions"][f]["Properties"]["Runtime"],
-                                                               "CodeUri": unum_template["Functions"][f]["Properties"]["CodeUri"],
-                                                               "Policies":["AmazonDynamoDBFullAccess","AmazonS3FullAccess","AWSLambdaRole","AWSLambdaBasicExecutionRole"]
-                                                           }
-                                                       }
+                "Type":"AWS::Serverless::Function",
+                "Properties": {
+                    "Handler":"unum.lambda_handler",
+                    "Runtime": unum_template["Functions"][f]["Properties"]["Runtime"],
+                    "CodeUri": unum_template["Functions"][f]["Properties"]["CodeUri"],
+                    "Policies": list(set(unum_function_needed_policies) | set(unum_function_policies))
+                }
+            }
         arn = f"!GetAtt {f}Function.Arn"
         sam_template["Outputs"][f'{f}Function'] = {"Value": f"!GetAtt {f}Function.Arn"}
 
@@ -251,6 +283,7 @@ def deploy(args):
 
 def template(args):
 
+    # unum-cli template -c/--clean
     if args.clean:
         try:
             subprocess.run(['rm', '-f', 'template.yaml'], check=True)
@@ -258,38 +291,64 @@ def template(args):
             raise e
         return
 
-    unum_template_fn = "unum-template.yaml"
+    # if platform is not specified
+    if args.platform == None:
+        print(f'No target platform specified.\nDefault to \033[33m\033[1mAWS\033[0m.')
+        print(f'If AWS is not the desirable target, specify a target platform with -p or --platform.\nSee unum-cli template -h for details.\n')
+        args.platform='aws'
+
+    # if a unum-template file is not specified
+    if args.template == None:
+        print(f'No unum template file specified.\nDefault to\033[33m\033[1m unum-template.yaml \033[0m')
+        print(f'You can specify a template file with -t or --template.\nSee unum-cli template -h for details.\n')
+        args.template = 'unum-template.yaml'
 
     try:
-        with open(unum_template_fn) as f:
-            app_template = yaml.load(f.read(), Loader=Loader)
+        with open(args.template) as f:
+            unum_template = yaml.load(f.read(), Loader=Loader)
     except Exception as e:
-        raise IOError(f'no unum-template.yaml found. Make sure to be in an unum application directory')
-
-    if "platform" not in vars(args):
-        raise ValueError(f'specify target platform with -p or --platform. See unum-cli template -h for details.')
+        print(f'\033[31m Build Failed.\n Make sure the template file exists\033[0m')
+        raise e
 
     if args.platform == 'aws':
-        template = generate_sam_template(app_template)
+        platform_template = generate_sam_template(unum_template)
+
+        # Save the AWS SAM template as 'template.yaml'
+        print(f'\033[32mBuild Succeeded\033[0m\n')
+        print(f'\033[33mAWS SAM Template: template.yaml\033[0m')
+        try:
+            with open('template.yaml','w') as f:
+                f.write(dump_yaml(platform_template))
+        except Exception as e:
+            raise e
+
+        # AWS-specific template post-processing
+        # YAML dumpper (even the AWS-provided one) doesn't correctly recognize
+        # Cloudformation tags and results in !GetAtt being saved as a string.
+        with open('template.yaml','r+') as f:
+            cnt = f.read()
+            # YAML dumpper (even the AWS-provided one) doesn't correctly recognize
+            # Cloudformation tags and results in !GetAtt being saved as a string.
+            cnt = cnt.replace("Value: '!GetAtt", "Value: !GetAtt").replace("Function.Arn'","Function.Arn")
+            f.seek(0)
+            f.write(cnt)
+            f.truncate()
+
     elif args.platform == 'azure':
-        # template = generate_azure_template(app_template)
+        # platform_template = generate_azure_template(app_template)
         return
     elif args.platform ==None:
         print(f'Failed to generate platform template due to missing target')
-        raise ValueError(f'specify target platform with -p or --platform. See unum-cli template -h for details.')
+        raise ValueError(f'Specify target platform with -p or --platform. See unum-cli template -h for details.')
     else:
         raise ValueError(f'Unknown platform: {args.platform}')
 
-    with open('template.yaml','w') as f:
-        # f.write(yaml.dump(template, Dumper=Dumper))
-        f.write(dump_yaml(template))
 
-    with open('template.yaml','r+') as f:
-        cnt = f.read()
-        cnt = cnt.replace("Value: '!GetAtt", "Value: !GetAtt").replace("Function.Arn'","Function.Arn")
-        f.seek(0)
-        f.write(cnt)
-        f.truncate()
+
+def compile_workflow(args):
+    print(args)
+    print(args.platform)
+    print(type(args))
 
 
 
@@ -303,7 +362,9 @@ def main():
     # template command parser
     template_parser = subparsers.add_parser("template", description="generate platform specific template")
     template_parser.add_argument('-p', '--platform', choices=['aws', 'azure'],
-        help="target platform", required=True)
+        help="target platform", required=False)
+    template_parser.add_argument('-t', '--template',
+        help="unum template file", required=False)
     template_parser.add_argument("-c", "--clean", help="Remove build artifacts",
         required=False, action="store_true")
 
@@ -313,9 +374,9 @@ def main():
     # build command parser
     build_parser = subparsers.add_parser("build", description="build unum application in the current directory")
     build_parser.add_argument('-p', '--platform', choices=['aws', 'azure'],
-        help="target platform", required=False)
+        help="target platform", required=False, default='aws')
     build_parser.add_argument("-t", "--template", help="Generate a platform template before buliding",
-        required = False, action="store_true")
+        required = False, action="store_true", default='unum-template.yaml')
     build_parser.add_argument("-c", "--clean", help="Remove build artifacts",
         required=False, action="store_true")
 
@@ -327,6 +388,14 @@ def main():
     deploy_parser.add_argument('-p', '--platform', choices=['aws', 'azure'],
         help="target platform", required=False)
 
+    # compile commmand parser
+    compile_parser = subparsers.add_parser("compile", description="compile workflow definitions to unum functions")
+    compile_parser.add_argument('-p', '--platform', choices=['step-functions'],
+        help='workflow definition type', required=True)
+    compile_parser.add_argument('-w', '--workflow', required=True, help="workflow file")
+    compile_parser.add_argument('-t', '--template', required=True, help="unum template file")
+    compile_parser.add_argument('-o', '--optimize', required=False, choices=['trim'], help="optimizations")
+
     args = parser.parse_args()
 
     if args.command == 'build':
@@ -337,6 +406,8 @@ def main():
         template(args)
     elif args.command =='init':
         init(args)
+    elif args.command == 'compile':
+        compile_workflow(args)
     else:
         raise IOError(f'Unknown command: {args.command}')
         

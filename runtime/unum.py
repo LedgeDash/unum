@@ -27,7 +27,6 @@ if "Next" in config:
 
 my_function_name = config["Name"]
 
-config["Debug"] = True
 
 
 def get_random_string(length):
