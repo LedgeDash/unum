@@ -408,7 +408,7 @@ def deploy_sam(args):
         first_deploy = True
 
         # trial deployment
-        ret, sam_output = sam_deploy_wrapper(stack_name, '.aws-sam/build/template.yaml')
+        ret, sam_output = sam_deploy_wrapper(stack_name)
         if ret == False:
             print(f'\033[31m Trial Deployment Failed!\033[0m\n')
             raise OSError(f'Failed to deploy to AWS')
@@ -465,7 +465,7 @@ def deploy_sam(args):
 
 
     # deploy
-    ret, sam_output = sam_deploy_wrapper(stack_name, '.aws-sam/build/template.yaml')
+    ret, sam_output = sam_deploy_wrapper(stack_name)
     if ret == False:
         print(f'\033[31m Deploy Failed!\033[0m\n')
         raise OSError(f'Failed to deploy to AWS')
@@ -473,12 +473,15 @@ def deploy_sam(args):
         print(sam_output)
         print(f'\033[32m\nDeploy Succeeded!\033[0m')
 
-def sam_deploy_wrapper(stack_name, sam_template_path):
-    ''' Wrapper around a sam deploy subprocess
+def sam_deploy_wrapper(stack_name):
+    ''' Wrapper around a sam deploy subprocess Note that unum-cli deploy will
+    always use .aws-sam/build/template.yaml as the sam deploy template (i.e.,
+    sam deploy -t .aws-sam/build/template.yaml), because unum-cli piggybacks
+    on the sam build artifacts
     '''
     ret = subprocess.run(["sam", "deploy",
                           "--stack-name", stack_name,
-                          "--template-file", sam_template_path,
+                          "--template-file", ".aws-sam/build/template.yaml",
                           "--no-fail-on-empty-changeset",
                           "--no-confirm-changeset",
                           "--resolve-s3",
