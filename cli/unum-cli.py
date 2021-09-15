@@ -70,6 +70,9 @@ def generate_sam_template(unum_template):
                     "Policies": list(set(unum_function_needed_policies) | set(unum_function_policies))
                 }
             }
+
+        # Add command to acquired the deployed Lambda's ARN to the "Outputs"
+        # fields of the SAM template
         arn = f"!GetAtt {f}Function.Arn"
         sam_template["Outputs"][f'{f}Function'] = {"Value": f"!GetAtt {f}Function.Arn"}
 

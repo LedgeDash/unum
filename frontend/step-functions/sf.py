@@ -187,6 +187,7 @@ def _translate_state_machine(state_name, state_machine):
             }
 
 
+
 def translate_state_machine(state_machine):
     ''' Given a state machine, return its IR, entry state and end state
 
@@ -202,6 +203,8 @@ def translate_state_machine(state_machine):
 
     return ret
 
+
+
 def get_config_by_name(function_name, ir):
     for c in ir['unum IR']:
         # print(f'{c}   {function_name}')
@@ -209,6 +212,8 @@ def get_config_by_name(function_name, ir):
             return c
 
     return None
+
+
 
 def _trim(fc, ir):
 
@@ -253,6 +258,8 @@ def _trim(fc, ir):
     else:
         _trim(get_config_by_name(fc["Next"]["Name"], ir), ir)
 
+
+
 def trim(ir):
     entry_function = ir["Entry unum function"]
     _trim(entry_function, ir)
@@ -262,23 +269,61 @@ def trim(ir):
             ir["unum IR"].remove(c)
     return
 
+
+
+def clean(args):
+    # Check if there's a .{unum-template}.yaml.old file in the directory. If
+    # so, the application was compiled.
+
+    if os.path.isfile(f'.{args.template}.old') == False:
+        return
+
+    with open(args.template) as f:
+        new_template = load_yaml(f.read())
+    with open(f'.{args.template}.old') as f:
+        old_template = load_yaml(f.read())
+
+    # remove created functions
+    new_functions = [f for f in new_template['Functions'] if f not in old_template['Functions']]
+    print(f'Created functions to remove: {new_functions}')
+
+    # removed generated unum_config.json
+    for f in old_template["Functions"]:
+        function_dir = old_template["Functions"][f]["Properties"]["CodeUri"]
+        os.remove(f'{function_dir}unum_config.json')
+
+    # restore unmu template file
+    os.rename(f'.{args.template}.old', args.template)
+
+
+
 def main():
     parser = argparse.ArgumentParser(description='unmu frontend compiler for AWS Step Functions',
         # usage = "unum-cli [options] <command> <subcommand> [<subcommand> ...] [parameters]",
         #epilog="To see help text for a specific command, use unum-cli <command> -h"
         )
     parser.add_argument('-w', '--workflow',
-        help="Step Functions state machine", required=True)
+        help="Step Functions state machine [Default: unum-step-functions.json]",
+        default = 'unum-step-functions.json')
     parser.add_argument('-t', '--template',
-        help="unum template", required=True)
+        help="unum template [Default: unum-template.yaml]", default = 'unum-template.yaml')
     parser.add_argument('-p', '--print',
         help="print the generate IR to stdout", action="store_true", required=False)
     parser.add_argument('-u', '--update',
         help="update the function's unum_config", action="store_true", required=False)
     parser.add_argument('-o', '--optimize',
         help="optimizations", choices=['trim', 'foo'], required=False)
+    parser.add_argument('-c', '--clean',
+        help="clean", action="store_true", required=False)
 
     args = parser.parse_args()
+
+    print('''Workflow definition: {args.workflow}
+unum template: {args.template}''')
+
+    if args.clean:
+        clean(args)
+        return
 
     with open(args.workflow) as f:
         state_machine = json.loads(f.read())
@@ -344,9 +389,11 @@ def main():
 
         # move the old unum-template.yaml file to .unum-template.yaml.old
         # Save the new template as unum-template.yaml
-        os.rename(args.template, f'.{args.template}.old')
+        if os.path.isfile(f'.{args.template}.old') == False:
+            os.rename(args.template, f'.{args.template}.old')
         with open(os.path.join(workflow_dir, args.template), 'w') as f:
             f.write(dump_yaml(template))
+
 
 
 if __name__ == '__main__':
