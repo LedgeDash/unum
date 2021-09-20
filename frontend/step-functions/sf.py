@@ -318,8 +318,7 @@ def main():
 
     args = parser.parse_args()
 
-    print('''Workflow definition: {args.workflow}
-unum template: {args.template}''')
+    print(f'Workflow definition: {args.workflow}\nunum template: {args.template}')
 
     if args.clean:
         clean(args)
@@ -363,12 +362,20 @@ unum template: {args.template}''')
 
             elif config["Name"].startswith("UnumMap") or config["Name"].startswith("UnumParallel"):
                 # update the template
+
+                # if this UnumMap or UnumParallel is the entry function, add
+                # Start: true to the template
                 template["Functions"][config["Name"]] = {
                     'Properties': {
                         "CodeUri": f'{config["Name"]}/',
                         "Runtime": "python3.8"
                         }
                     }
+
+                print('adding Start to template')
+                if "Start" in config and config["Start"] == True:
+                    template["Functions"][config["Name"]]["Properties"]["Start"] = True
+                    print('added')
 
                 # create the directory and inside the directory, create
                 # unum_config.json, __init__.py, requirements.txt and app.py
@@ -391,6 +398,7 @@ unum template: {args.template}''')
         # Save the new template as unum-template.yaml
         if os.path.isfile(f'.{args.template}.old') == False:
             os.rename(args.template, f'.{args.template}.old')
+
         with open(os.path.join(workflow_dir, args.template), 'w') as f:
             f.write(dump_yaml(template))
 
