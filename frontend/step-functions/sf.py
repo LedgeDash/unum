@@ -9,6 +9,8 @@ except ImportError:
 
 from cfn_tools import load_yaml, dump_yaml
 
+import shutil
+
 unum_map_counter = 0
 unum_parallel_counter = 0
 
@@ -286,6 +288,8 @@ def clean(args):
     # remove created functions
     new_functions = [f for f in new_template['Functions'] if f not in old_template['Functions']]
     print(f'Created functions to remove: {new_functions}')
+    for d in new_functions:
+        shutil.rmtree(d)
 
     # removed generated unum_config.json
     for f in old_template["Functions"]:
