@@ -358,7 +358,7 @@ def main():
             if config["Name"] in template["Functions"]:
                 function_dir = os.path.join(workflow_dir, template["Functions"][config["Name"]]["Properties"]["CodeUri"])
                 with open(os.path.join(function_dir, 'unum_config.json'), 'w') as f:
-                    f.write(json.dumps(config))
+                    f.write(json.dumps(config, indent=4))
 
             elif config["Name"].startswith("UnumMap") or config["Name"].startswith("UnumParallel"):
                 # update the template
@@ -392,7 +392,7 @@ def main():
                 with open(os.path.join(function_dir, 'app.py'), 'w') as f:
                     f.write(PASS_FUNCTION)
                 with open(os.path.join(function_dir, 'unum_config.json'), 'w') as f:
-                    f.write(json.dumps(config))
+                    f.write(json.dumps(config, indent=4))
 
         # move the old unum-template.yaml file to .unum-template.yaml.old
         # Save the new template as unum-template.yaml
