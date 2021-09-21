@@ -319,6 +319,9 @@ def main():
         help="optimizations", choices=['trim', 'foo'], required=False)
     parser.add_argument('-c', '--clean',
         help="clean", action="store_true", required=False)
+    parser.add_argument('--fanin_wait',
+        help="One of the fan-out function wait for others before performing fan-in",
+        action="store_true", required=False)
 
     args = parser.parse_args()
 
@@ -351,6 +354,11 @@ def main():
         print(f'Trimming IR...')
         trim(ir)
 
+    # Check fan-in to wait
+    if args.fanin_wait:
+        for c in ir["unum IR"]:
+            if "NextInput" in c and "Fan-in" in c["NextInput"]:
+                c["NextInput"]["Fan-in"]["Wait"] = True
 
     if args.print:
         print("**************** IR ***************")
@@ -376,10 +384,8 @@ def main():
                         }
                     }
 
-                print('adding Start to template')
                 if "Start" in config and config["Start"] == True:
                     template["Functions"][config["Name"]]["Properties"]["Start"] = True
-                    print('added')
 
                 # create the directory and inside the directory, create
                 # unum_config.json, __init__.py, requirements.txt and app.py
