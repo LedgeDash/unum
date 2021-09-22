@@ -341,11 +341,16 @@ def main():
     with open(args.template) as f:
         template = load_yaml(f.read())
 
+    # Checkpoint
     for c in ir["unum IR"]:
         if "NextInput" in c and "Fan-in" in c["NextInput"]:
             c["Checkpoint"] = True
         else:
             c["Checkpoint"] = template["Globals"]["Checkpoint"]
+    # Debug
+    if "Debug" in template["Globals"]:
+        for c in ir["unum IR"]:
+            c["Debug"] = template["Globals"]["Debug"]
 
     # mark the start function
     ir["Entry unum function"]["Start"] = True
