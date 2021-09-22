@@ -328,7 +328,8 @@ def egress(user_function_output, event, context):
             if "Fan-out" in event:
                 # payload["Fan-out"] = event["Fan-out"]
                 next_fof = run_fanout_modifiers(event)
-                payload["Fan-out"] = next_fof
+                if next_fof != {}:
+                    payload["Fan-out"] = next_fof
 
             if "Fan-out" in payload:
                 uerror(payload["Session"], f'{config["Name"]}-{payload["Fan-out"]["Index"]}-nextpayload-chain.json', payload)
