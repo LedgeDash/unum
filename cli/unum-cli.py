@@ -253,7 +253,7 @@ def deploy_sam_first():
                     for cnt in config["Next"]:
                         cnt["Name"] = function_to_arn_mapping[cnt["Name"]]
                 c.seek(0)
-                c.write(json.dumps(config))
+                c.write(json.dumps(config, indent=4))
                 c.truncate()
                 print(f'{app_dir}unum_config.json Updated')
 
@@ -328,7 +328,7 @@ def update_unum_config_continuation_to_arn(platform_template, function_to_arn_ma
                         for cnt in config["Next"]:
                             cnt["Name"] = function_to_arn_mapping[cnt["Name"]]
                     c.seek(0)
-                    c.write(json.dumps(config))
+                    c.write(json.dumps(config, indent=4))
                     c.truncate()
 
                 print(f'\033[32m {function_artifact_dir}/unum_config.json Updated\033[0m')
