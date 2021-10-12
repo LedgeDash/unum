@@ -1,11 +1,6 @@
 {
-  "StartAt": "Start",
+  "StartAt": "Parallel",
   "States": {
-    "Start": {
-        "Type": "Task",
-        "Resource": "Start",
-        "Next":"Parallel"
-    },
     "Parallel": {
       "Type": "Parallel",
       "Next": "CreatePost",

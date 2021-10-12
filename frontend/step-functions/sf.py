@@ -79,8 +79,10 @@ def _translate_state_machine(state_name, state_machine):
 
             config = {
                 "Name": unum_function_name,
-                "Next": {"Name": next_state["Entry unum function"]["Name"]},
-                "NextInput":"Scalar"
+                "Next": {
+                    "Name": next_state["Entry unum function"]["Name"],
+                    "InputType":"Scalar"
+                }
             }
 
             ir.append(config)
@@ -98,11 +100,15 @@ def _translate_state_machine(state_name, state_machine):
     elif state["Type"] == "Map":
 
         iterator = translate_state_machine(state["Iterator"])
+
         global unum_map_counter
+
         unum_map = {
             "Name": f'UnumMap{unum_map_counter}',
-            "Next": {"Name": iterator["Entry unum function"]["Name"]},
-            "NextInput": "Map"
+            "Next": {
+                "Name": iterator["Entry unum function"]["Name"],
+                "InputType": "Map"
+            }
         }
 
         unum_map_sink = {
@@ -110,12 +116,14 @@ def _translate_state_machine(state_name, state_machine):
         }
         unum_map_counter = unum_map_counter + 1
 
-        iterator["Exit unum function"]["Next"] = {"Name": unum_map_sink["Name"]}
-        iterator["Exit unum function"]["NextInput"] = {
-            "Fan-in": {
-                "Values": [
-                    f'{iterator["Exit unum function"]["Name"]}-unumIndex-*'
-                ]
+        iterator["Exit unum function"]["Next"] = {
+            "Name": unum_map_sink["Name"],
+            "InputType": {
+                "Fan-in": {
+                    "Values": [
+                        f'{iterator["Exit unum function"]["Name"]}-unumIndex-*'
+                    ]
+                }
             }
         }
 
@@ -125,15 +133,21 @@ def _translate_state_machine(state_name, state_machine):
 
         if "Next" in state:
             next_state = _translate_state_machine(state["Next"], state_machine)
-            unum_map_sink["Next"] = {"Name": next_state["Entry unum function"]["Name"]}
-            unum_map_sink["NextInput"] = "Scalar"
+
+            unum_map_sink["Next"] = {
+                "Name": next_state["Entry unum function"]["Name"],
+                "InputType": "Scalar"
+            }
+
             ir = ir + next_state["unum IR"]
+
             return {
                 "State Name": state_name,
                 "unum IR": ir,
                 "Entry unum function": unum_map,
                 "Exit unum function": next_state["Exit unum function"]
             }
+
         else:
             return {
                 "State Name": state_name,
@@ -145,11 +159,12 @@ def _translate_state_machine(state_name, state_machine):
 
     elif state["Type"] == "Parallel":
         branches = [translate_state_machine(b) for b in state["Branches"]]
+
         global unum_parallel_counter
+
         unum_parallel = {
             "Name": f'UnumParallel{unum_parallel_counter}',
-            "Next": [{"Name": b["Entry unum function"]["Name"]} for b in branches],
-            "NextInput":"Scalar"
+            "Next": [{"Name": b["Entry unum function"]["Name"], "InputType":"Scalar"} for b in branches],
         }
         ir.append(unum_parallel)
 
@@ -157,29 +172,39 @@ def _translate_state_machine(state_name, state_machine):
             "Name": f'UnumSinkParallel{unum_parallel_counter}'
         }
         unum_parallel_counter = unum_parallel_counter +1
+
         parallel_fan_in_vals = [f'{branches[i]["Exit unum function"]["Name"]}-unumIndex-{i}' for i in range(len(branches))]
+
         for b in branches:
             ir = ir + b["unum IR"]
-            b["Exit unum function"]["NextInput"] = {
-                "Fan-in": {
-                    "Values": parallel_fan_in_vals
+
+            b["Exit unum function"]["Next"] = {
+                "Name": unum_parallel_sink["Name"],
+                "InputType": {
+                    "Fan-in": {
+                        "Values": parallel_fan_in_vals
+                    }
                 }
             }
-            b["Exit unum function"]["Next"] = {"Name": unum_parallel_sink["Name"]}
 
         ir.append(unum_parallel_sink)
 
         if "Next" in state:
             next_state = _translate_state_machine(state["Next"], state_machine)
-            unum_parallel_sink["Next"] = {"Name": next_state["Entry unum function"]["Name"]}
-            unum_parallel_sink["NextInput"] = "Scalar"
+            unum_parallel_sink["Next"] = {
+                "Name": next_state["Entry unum function"]["Name"],
+                "InputType": "Scalar"
+            }
+
             ir = ir + next_state["unum IR"]
+
             return {
                 "State Name": state_name,
                 "unum IR": ir,
                 "Entry unum function": unum_parallel,
                 "Exit unum function": next_state["Exit unum function"]
             }
+
         else:
             return {
                 "State Name": state_name,
@@ -199,7 +224,7 @@ def translate_state_machine(state_machine):
 
     states = state_machine["States"]
     entry_state_name = state_machine["StartAt"]
-    entry_state = states[entry_state_name]
+    # entry_state = states[entry_state_name]
 
     ret = _translate_state_machine(entry_state_name, state_machine)
 
@@ -234,7 +259,7 @@ def _trim(fc, ir):
         # function, skip the sink
         if fc["Next"]["Name"].startswith("UnumSinkMap") or fc["Next"]["Name"].startswith("UnumSinkParallel"):
             next_sink_config = get_config_by_name(fc["Next"]["Name"], ir)
-            if "Next" in next_sink_config and next_sink_config["NextInput"] == "Scalar":
+            if "Next" in next_sink_config and next_sink_config["Next"]["InputType"] == "Scalar":
                 fc["Next"]["Name"] = next_sink_config["Next"]["Name"]
                 next_sink_config["Remove"] = True
 
@@ -243,9 +268,9 @@ def _trim(fc, ir):
         # fan-out and skip the UnumMap or UnumParallel
         elif fc["Next"]["Name"].startswith("UnumMap"):
             next_map_config = get_config_by_name(fc["Next"]["Name"], ir)
-            if fc["NextInput"] == "Scalar":
+            if fc["Next"]["InputType"] == "Scalar":
                 fc["Next"]["Name"] = next_map_config["Next"]["Name"]
-                fc["NextInput"] = "Map"
+                fc["Next"]["InputType"] = "Map"
                 next_map_config["Remove"] = True
 
         elif fc["Next"]["Name"].startswith("UnumParallel"):
@@ -336,17 +361,32 @@ def main():
 
     ir = translate_state_machine(state_machine)
 
-
     # Add global configurations from unum-template.yaml
     with open(args.template) as f:
         template = load_yaml(f.read())
 
     # Checkpoint
     for c in ir["unum IR"]:
-        if "NextInput" in c and "Fan-in" in c["NextInput"]:
-            c["Checkpoint"] = True
+        if "Next" in c:
+            if isinstance(c["Next"],dict):
+                if "Fan-in" in c["Next"]["InputType"]:
+                    c["Checkpoint"] = True
+                else:
+                     c["Checkpoint"] = template["Globals"]["Checkpoint"]
+            elif isinstance(c["Next"], list):
+                ret = False
+                for n in c["Next"]:
+                    if "Fan-in" in n["InputType"]:
+                        ret = True
+                        break
+                if ret:
+                    c["Checkpoint"] = True
+                else:
+                    c["Checkpoint"] = template["Globals"]["Checkpoint"]
+
         else:
             c["Checkpoint"] = template["Globals"]["Checkpoint"]
+
     # Debug
     if "Debug" in template["Globals"]:
         for c in ir["unum IR"]:
@@ -362,12 +402,13 @@ def main():
     # Check fan-in to wait
     if args.fanin_wait:
         for c in ir["unum IR"]:
-            if "NextInput" in c and "Fan-in" in c["NextInput"]:
+            if "Next" in c and "Fan-in" in c["Next"]["NextInput"]:
                 c["NextInput"]["Fan-in"]["Wait"] = True
 
     if args.print:
-        print("**************** IR ***************")
-        print(f'{ir}')
+        print("******************************** IR ********************************")
+
+        print(f'{json.dumps(ir, indent=4)}')
 
     if args.update:
         workflow_dir = os.path.dirname(args.template)
