@@ -405,6 +405,13 @@ def main():
             if "Next" in c and "Fan-in" in c["Next"]["NextInput"]:
                 c["NextInput"]["Fan-in"]["Wait"] = True
 
+    # Add Next Payload Modifier Pop to functions whose Next field is Fan-in
+    # Doesn't handle the case where the Next field is a list and one of the
+    # continuations is Fan-in
+    for c in ir["unum IR"]:
+        if "Next" in c and isinstance(c["Next"], dict) and "Fan-in" in c["Next"]["InputType"]:
+            c["Next Payload Modifiers"] = ["Pop"]
+
     if args.print:
         print("******************************** IR ********************************")
 
