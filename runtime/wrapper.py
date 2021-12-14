@@ -201,19 +201,22 @@ def lambda_handler(event, context):
 
     '''
 
+    unfailed = True # this is retry num < N
+
     if unum.debug:
 
         t1 = time.perf_counter_ns()
         ckpt_ret = unum.get_checkpoint(event)
         t2 = time.perf_counter_ns()
 
-        if ckpt_ret == None:
+        if ckpt_ret == None and unfailed:
             user_function_input = ingress(event)
 
             t3 = time.perf_counter_ns()
             user_function_output = user_lambda(user_function_input, context)
             t4 = time.perf_counter_ns()
-
+        else if ckpt_ret == None:
+            user_function_output = {"error": "Function failed to execute" }
         else:
             user_function_output = ckpt_ret
 
@@ -228,9 +231,11 @@ def lambda_handler(event, context):
     else:
 
         ckpt_ret = unum.get_checkpoint(event)
-        if ckpt_ret == None:
+        if ckpt_ret == None and unfailed:
             user_function_input = ingress(event)
             user_function_output = user_lambda(user_function_input, context)
+        else if ckpt_ret == None:
+            user_function_output = {"error": "Function failed to execute" }
         else:
             user_function_output = ckpt_ret
             
