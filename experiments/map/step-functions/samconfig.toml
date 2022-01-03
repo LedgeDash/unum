@@ -1,0 +1,9 @@
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "sf-map-micro"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-1p6wkdqwc2lfe"
+s3_prefix = "sf-map-micro"
+region = "us-west-1"
+capabilities = "CAPABILITY_IAM"

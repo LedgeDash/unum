@@ -1,0 +1,11 @@
+{
+    "Name": "ChainPass",
+    "Next": {
+        "Name": "ChainPass",
+        "InputType": "Scalar",
+        "Conditional": "$0 < $size-1"
+    },
+    "Next Payload Modifiers": ["$0=$0+1"],
+    "Checkpoint": true,
+    "Start": true
+}

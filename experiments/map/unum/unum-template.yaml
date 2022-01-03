@@ -1,0 +1,19 @@
+Globals:
+  # ApplicationName: unum-map-nowait
+  # UnumIntermediaryDataStoreType: s3
+  # UnumIntermediaryDataStoreName: unum-return-value-store
+  ApplicationName: unum-map-dynamo-new
+  UnumIntermediaryDataStoreType: dynamodb
+  UnumIntermediaryDataStoreName: unum-dynamo-test-table
+  FaaSPlatform: aws
+  Checkpoint: true
+  Debug: false
+Functions:
+  F1:
+    Properties:
+      CodeUri: f1/
+      Runtime: python3.8
+  Summary:
+    Properties:
+      CodeUri: summary/
+      Runtime: python3.8

@@ -1,0 +1,18 @@
+{
+    "Name": "F1",
+    "Next": {
+        "Name": "Summary",
+        "InputType": {
+            "Fan-in": {
+                "Values": [
+                    "F1-unumIndex-*"
+                ]
+            }
+        }
+    },
+    "Checkpoint": true,
+    "Debug": false,
+    "Next Payload Modifiers": [
+        "Pop"
+    ]
+}

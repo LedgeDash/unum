@@ -1,0 +1,14 @@
+Globals:
+  ApplicationName: unum-chain-micro
+  UnumIntermediaryDataStoreType: dynamodb
+  UnumIntermediaryDataStoreName: unum-dynamo-test-table
+  FaaSPlatform: aws
+  Checkpoint: true
+  Debug: false
+Functions:
+  ChainPass:
+    Properties:
+      CodeUri: chain-pass/
+      Runtime: python3.8
+      Start: true
+

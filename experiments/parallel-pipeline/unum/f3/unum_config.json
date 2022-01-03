@@ -1,0 +1,16 @@
+{
+    "Name": "F3",
+    "Next": {
+        "Name": "Summary"
+    },
+    "NextInput": {
+        "Fan-in": {
+            "Values": [
+                "F3-unumIndex-*"
+            ],
+            "Wait": true
+        }
+    },
+    "Checkpoint": true,
+    "Debug": false
+}

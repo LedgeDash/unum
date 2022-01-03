@@ -1,0 +1,11 @@
+{
+	"Data": {
+		"Source": "http",
+		"Value": {}
+	},
+	"Fan-out": {
+		"Type": "Map",
+		"Index":0,
+		"Size":2
+	}
+}

@@ -1,0 +1,418 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Globals:
+  Function:
+    Timeout: 900
+Outputs:
+  ChainPassFunction:
+    Value: !GetAtt ChainPassFunction.Arn
+Resources:
+  ChainPassFunction:
+    Properties:
+      CodeUri: chain-pass/
+      Handler: app.lambda_handler
+      Policies:
+        - AWSLambdaRole
+        - AWSLambdaBasicExecutionRole
+      Runtime: python3.8
+    Type: AWS::Serverless::Function    
+  Chain2:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      RoleArn: arn:aws:iam::746167823857:role/stepfunctions-ex
+      DefinitionString:
+        !Sub
+          - |-
+            {
+              "Comment": "A 2-stage chain with pass functions",
+              "StartAt": "First",
+              "States": {
+                "First": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Second"
+                },
+                "Second": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "End": true
+                }
+              }
+            }
+          - {passArn: !GetAtt [ ChainPassFunction, Arn ]}
+  Chain3:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      RoleArn: arn:aws:iam::746167823857:role/stepfunctions-ex
+      DefinitionString:
+        !Sub
+          - |-
+            {
+              "Comment": "A 3-stage chain with pass functions",
+              "StartAt": "First",
+              "States": {
+                "First": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Second"
+                },
+                "Second": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Third"
+                },
+                "Third": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "End": true
+                }
+              }
+            }
+          - {passArn: !GetAtt [ ChainPassFunction, Arn ]}
+
+  Chain4:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      RoleArn: arn:aws:iam::746167823857:role/stepfunctions-ex
+      DefinitionString:
+        !Sub
+          - |-
+            {
+              "Comment": "A 4-stage chain with pass functions",
+              "StartAt": "First",
+              "States": {
+                "First": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Second"
+                },
+                "Second": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Third"
+                },
+                "Third": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Fourth"
+                },
+                "Fourth": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "End": true
+                }
+              }
+            }
+          - {passArn: !GetAtt [ ChainPassFunction, Arn ]}
+  Chain5:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      RoleArn: arn:aws:iam::746167823857:role/stepfunctions-ex
+      DefinitionString:
+        !Sub
+          - |-
+            {
+              "Comment": "A 5-stage chain with pass functions",
+              "StartAt": "First",
+              "States": {
+                "First": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Second"
+                },
+                "Second": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Third"
+                },
+                "Third": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Fourth"
+                },
+                "Fourth": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Fifth"
+                },
+                "Fifth": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "End": true
+                }
+              }
+            }
+          - {passArn: !GetAtt [ ChainPassFunction, Arn ]}
+
+  Chain6:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      RoleArn: arn:aws:iam::746167823857:role/stepfunctions-ex
+      DefinitionString:
+        !Sub
+          - |-
+            {
+              "Comment": "A 6-stage chain with pass functions",
+              "StartAt": "First",
+              "States": {
+                "First": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Second"
+                },
+                "Second": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Third"
+                },
+                "Third": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Fourth"
+                },
+                "Fourth": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Fifth"
+                },
+                "Fifth": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Sixth"
+                },
+                "Sixth": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "End": true
+                }
+              }
+            }
+          - {passArn: !GetAtt [ ChainPassFunction, Arn ]}
+
+  Chain7:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      RoleArn: arn:aws:iam::746167823857:role/stepfunctions-ex
+      DefinitionString:
+        !Sub
+          - |-
+            {
+              "Comment": "A 7-stage chain with pass functions",
+              "StartAt": "First",
+              "States": {
+                "First": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Second"
+                },
+                "Second": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Third"
+                },
+                "Third": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Fourth"
+                },
+                "Fourth": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Fifth"
+                },
+                "Fifth": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Sixth"
+                },
+                "Sixth": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Seventh"
+                },
+                "Seventh": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "End": true
+                }
+              }
+            }
+          - {passArn: !GetAtt [ ChainPassFunction, Arn ]}
+
+  Chain8:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      RoleArn: arn:aws:iam::746167823857:role/stepfunctions-ex
+      DefinitionString:
+        !Sub
+          - |-
+            {
+              "Comment": "A 8-stage chain with pass functions",
+              "StartAt": "First",
+              "States": {
+                "First": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Second"
+                },
+                "Second": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Third"
+                },
+                "Third": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Fourth"
+                },
+                "Fourth": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Fifth"
+                },
+                "Fifth": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Sixth"
+                },
+                "Sixth": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Seventh"
+                },
+                "Seventh": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Eighth"
+                },
+                "Eighth": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "End": true
+                }
+              }
+            }
+          - {passArn: !GetAtt [ ChainPassFunction, Arn ]}
+  Chain9:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      RoleArn: arn:aws:iam::746167823857:role/stepfunctions-ex
+      DefinitionString:
+        !Sub
+          - |-
+            {
+              "Comment": "A 9-stage chain with pass functions",
+              "StartAt": "First",
+              "States": {
+                "First": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Second"
+                },
+                "Second": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Third"
+                },
+                "Third": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Fourth"
+                },
+                "Fourth": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Fifth"
+                },
+                "Fifth": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Sixth"
+                },
+                "Sixth": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Seventh"
+                },
+                "Seventh": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Eighth"
+                },
+                "Eighth": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Ninth"
+                },
+                "Ninth": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "End": true
+                }
+              }
+            }
+          - {passArn: !GetAtt [ ChainPassFunction, Arn ]}
+  Chain10:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      RoleArn: arn:aws:iam::746167823857:role/stepfunctions-ex
+      DefinitionString:
+        !Sub
+          - |-
+            {
+              "Comment": "A 10-stage chain with pass functions",
+              "StartAt": "First",
+              "States": {
+                "First": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Second"
+                },
+                "Second": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Third"
+                },
+                "Third": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Fourth"
+                },
+                "Fourth": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Fifth"
+                },
+                "Fifth": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Sixth"
+                },
+                "Sixth": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Seventh"
+                },
+                "Seventh": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Eighth"
+                },
+                "Eighth": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Ninth"
+                },
+                "Ninth": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "Next": "Tenth"
+                },
+                "Tenth": {
+                  "Type": "Task",
+                  "Resource": "${passArn}",
+                  "End": true
+                }
+              }
+            }
+          - {passArn: !GetAtt [ ChainPassFunction, Arn ]}

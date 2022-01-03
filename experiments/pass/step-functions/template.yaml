@@ -1,0 +1,54 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Globals:
+  Function:
+    Timeout: 900
+Outputs:
+  FirstFunction:
+    Value: !GetAtt FirstFunction.Arn
+  SecondFunction:
+    Value: !GetAtt SecondFunction.Arn
+Resources:
+  FirstFunction:
+    Properties:
+      CodeUri: first/
+      Handler: app.lambda_handler
+      Policies:
+        - AWSLambdaRole
+        - AWSLambdaBasicExecutionRole
+      Runtime: python3.8
+    Type: AWS::Serverless::Function
+  SecondFunction:
+    Properties:
+      CodeUri: second/
+      Handler: app.lambda_handler
+      Policies:
+        - AWSLambdaRole
+        - AWSLambdaBasicExecutionRole
+      Runtime: python3.8
+    Type: AWS::Serverless::Function
+    
+  PassMicroSF:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      RoleArn: arn:aws:iam::746167823857:role/stepfunctions-ex
+      DefinitionString:
+        !Sub
+          - |-
+            {
+              "Comment": "A one-stage chain with pass functions",
+              "StartAt": "First",
+              "States": {
+                "First": {
+                  "Type": "Task",
+                  "Resource": "${firstArn}",
+                  "Next": "Second"
+                },
+                "Second": {
+                  "Type": "Task",
+                  "Resource": "${secondArn}",
+                  "End": true
+                }
+              }
+            }
+          - {firstArn: !GetAtt [ FirstFunction, Arn ], secondArn: !GetAtt [ SecondFunction, Arn ]}

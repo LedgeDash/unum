@@ -1,0 +1,61 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Globals:
+  Function:
+    Timeout: 900
+Outputs:
+  F1Function:
+    Value: !GetAtt F1Function.Arn
+  SummaryFunction:
+    Value: !GetAtt SummaryFunction.Arn
+Resources:
+  F1Function:
+    Properties:
+      CodeUri: f1/
+      Handler: app.lambda_handler
+      Policies:
+        - AWSLambdaRole
+        - AWSLambdaBasicExecutionRole
+      Runtime: python3.8
+    Type: AWS::Serverless::Function
+  SummaryFunction:
+    Properties:
+      CodeUri: summary/
+      Handler: app.lambda_handler
+      Policies:
+        - AWSLambdaRole
+        - AWSLambdaBasicExecutionRole
+      Runtime: python3.8
+    Type: AWS::Serverless::Function
+  MapNoWaitSF:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      RoleArn: arn:aws:iam::746167823857:role/stepfunctions-ex
+      DefinitionString:
+        !Sub
+          - |-
+            {
+              "StartAt": "Map",
+              "States": {
+                "Map": {
+                  "Type": "Map",
+                  "Next": "Summary",
+                  "Iterator": {
+                    "StartAt": "F1",
+                    "States": {
+                      "F1": {
+                        "Type": "Task",
+                        "Resource": "${f1Arn}",
+                        "End":true
+                      }
+                    }
+                  }
+                },
+                "Summary": {
+                  "Type": "Task",
+                  "Resource": "${summaryArn}",
+                  "End":true
+                }
+              }
+            }
+          - {f1Arn: !GetAtt [ F1Function, Arn ], summaryArn: !GetAtt [ SummaryFunction, Arn ]}

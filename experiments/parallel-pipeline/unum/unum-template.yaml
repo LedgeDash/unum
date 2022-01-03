@@ -1,0 +1,23 @@
+Globals:
+  ApplicationName: unum-parallel-pipeline
+  UnumIntermediaryDataStoreType: s3
+  UnumIntermediaryDataStoreName: unum-return-value-store
+  Checkpoint: false
+  Debug: false
+Functions:
+  F1:
+    Properties:
+      CodeUri: f1/
+      Runtime: python3.8
+  F2:
+    Properties:
+      CodeUri: f2/
+      Runtime: python3.8
+  F3:
+    Properties:
+      CodeUri: f3/
+      Runtime: python3.8
+  Summary:
+    Properties:
+      CodeUri: summary/
+      Runtime: python3.8

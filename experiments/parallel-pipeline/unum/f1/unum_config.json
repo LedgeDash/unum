@@ -1,0 +1,9 @@
+{
+    "Name": "F1",
+    "Next": {
+        "Name": "F2"
+    },
+    "NextInput": "Scalar",
+    "Checkpoint": false,
+    "Debug": false
+}

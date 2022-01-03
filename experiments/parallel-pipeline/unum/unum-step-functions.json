@@ -1,0 +1,34 @@
+{
+  "StartAt": "Map",
+  "States": {
+    "Map": {
+      "Type": "Map",
+      "Next": "Summary",
+      "Iterator": {
+        "StartAt": "F1",
+        "States": {
+          "F1": {
+            "Type": "Task",
+            "Resource": "F1",
+            "Next":"F2"
+          },
+          "F2": {
+            "Type": "Task",
+            "Resource": "F2",
+            "Next":"F3"
+          },
+          "F3": {
+            "Type": "Task",
+            "Resource": "F3",
+            "End": true
+          }
+        }
+      }
+    },
+    "Summary": {
+      "Type": "Task",
+      "Resource": "Summary",
+      "End":true
+    }
+  }
+}
