@@ -1,0 +1,133 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Globals:
+  Function:
+    Timeout: 900
+
+Outputs:
+  FirstFunction:
+    Value: !GetAtt FirstFunction.Arn
+  SecondFunction:
+    Value: !GetAtt SecondFunction.Arn
+  FirstErrorFunction:
+    Value: !GetAtt FirstErrorFunction.Arn
+  SecondErrorFunction:
+    Value: !GetAtt SecondErrorFunction.Arn
+
+Resources:
+  FirstFunction:
+    Properties:
+      CodeUri: first/
+      Handler: app.lambda_handler
+      Policies:
+        - AWSLambdaRole
+        - AWSLambdaBasicExecutionRole
+      Runtime: python3.8
+    Type: AWS::Serverless::Function
+  SecondFunction:
+    Properties:
+      CodeUri: second/
+      Handler: app.lambda_handler
+      Policies:
+        - AWSLambdaRole
+        - AWSLambdaBasicExecutionRole
+      Runtime: python3.8
+    Type: AWS::Serverless::Function
+  FirstErrorFunction:
+    Properties:
+      CodeUri: first_error/
+      Handler: app.lambda_handler
+      Policies:
+        - AWSLambdaRole
+        - AWSLambdaBasicExecutionRole
+      Runtime: python3.8
+    Type: AWS::Serverless::Function
+  SecondErrorFunction:
+    Properties:
+      CodeUri: second_error/
+      Handler: app.lambda_handler
+      Policies:
+        - AWSLambdaRole
+        - AWSLambdaBasicExecutionRole
+      Runtime: python3.8
+    Type: AWS::Serverless::Function
+
+  RetryOnlySF:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      RoleArn: arn:aws:iam::746167823857:role/stepfunctions-ex
+      DefinitionString:
+        !Sub
+          - |-
+            {
+              "Comment": "Just retries second state",
+              "StartAt": "First",
+              "States": {
+                "First": {
+                  "Type": "Task",
+                  "Resource": "${firstArn}",
+                  "Next": "Second"
+                },
+                "Second": {
+                  "Type": "Task",
+                  "Resource": "${secondArn}",
+                  "Retry": [
+                    {
+                       "ErrorEquals": [ "States.TaskFailed" ],
+                       "IntervalSeconds": 1,
+                       "MaxAttempts": 4,
+                       "BackoffRate": 1
+                    }
+                  ],
+                  "End": true
+                }
+              }
+            }
+          - {firstArn: !GetAtt [ FirstFunction, Arn ], secondArn: !GetAtt [ SecondFunction, Arn ]}
+  
+  TwoCatchSF:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      RoleArn: arn:aws:iam::746167823857:role/stepfunctions-ex
+      DefinitionString:
+        !Sub
+          - |-
+            {
+              "Comment": "Each of the 2 states has its own Catch",
+              "StartAt": "First",
+              "States": {
+                "First": {
+                  "Type": "Task",
+                  "Resource": "${firstArn}",
+                  "Next": "Second",
+                  "Catch": [
+                    {
+                      "ErrorEquals": [ "States.TaskFailed" ],
+                      "Next": "FirstError"
+                    }
+                  ]
+                },
+                "Second": {
+                  "Type": "Task",
+                  "Resource": "${secondArn}",
+                  "End": true,
+                  "Catch": [
+                    {
+                      "ErrorEquals": [ "States.TaskFailed" ],
+                      "Next": "SecondError"
+                    }
+                  ]
+                },
+                "FirstError": {
+                  "Type": "Task",
+                  "Resource": "${firstErrorArn}",
+                  "End": true
+                },
+                "SecondError": {
+                  "Type": "Task",
+                  "Resource": "${secondErrorArn}",
+                  "End": true
+                }
+              }
+            }
+          - {firstArn: !GetAtt [ FirstFunction, Arn ], secondArn: !GetAtt [ SecondFunction, Arn ], firstErrorArn: !GetAtt [ FirstErrorFunction, Arn ], secondErrorArn: !GetAtt [ SecondErrorFunction, Arn ]}

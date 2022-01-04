@@ -1,0 +1,17 @@
+Globals:
+  ApplicationName: unum-catch
+  UnumIntermediaryDataStoreType: dynamodb
+  UnumIntermediaryDataStoreName: unum-dynamo-test-table
+  FaaSPlatform: aws
+  Checkpoint: true
+  Debug: false
+Functions:
+  First:
+    Properties:
+      CodeUri: first/
+      Runtime: python3.8
+      Start: true
+  Second:
+    Properties:
+      CodeUri: second/
+      Runtime: python3.8
