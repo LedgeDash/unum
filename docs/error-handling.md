@@ -2,6 +2,15 @@
 
 ## Background: Retry
 
+[Example
+scenario](https://docs.aws.amazon.com/step-functions/latest/dg/welcome.html)
+for demonstrating the utility of retry:
+
+A customer requests a username. The first time, your customer’s request is
+unsuccessful. Using a Retry statement, you can have Step Functions try your
+customer's request again. The second time, your customer’s request is
+successful. 
+
 ### Lambda
 
 In Lambda and SAM, the number of retries is specified under
@@ -140,21 +149,106 @@ messgae if failed. Lambda actually does not retry for synchronous invocations.
 
 ## Background: Catch
 
+[Example
+scenario](https://docs.aws.amazon.com/step-functions/latest/dg/welcome.html)
+for demonstrating the utility of catch:
 
-### Lambda Failure Destination
-
-Only trigger failure destination after all retry attempts for asynchronous
-invocations? What about sychronous?
+A customer requests an unavailable username. Using a Catch statement, you have
+Step Functions suggest an available username. If your customer takes the
+available username, you can have Step Functions go to the next step in your
+workflow, which is to send a confirmation email. If your customer doesn’t take
+the available username, you have Step Functions go to a different step in your
+workflow, which is to start the sign-up process over.
 
 ### Step Functions Catch
+
+`Task`, `Map` and `Parallel` states support `Catch`. `Catch` matches on error
+types and jumps to a *state* in the state machine.
 
 If there is a `Retry` field in the state, Step Functions [only execute `Catch`
 field if retries fail to resolve the
 error](https://docs.aws.amazon.com/step-functions/latest/dg/concepts-error-handling.html).
 
+Based on the `TwoCatchSF` experiment in `experiments/catch/step-fucntions`, if
+the catcher is a Lambda function, its inputs are:
 
+```python
+{
+    'Error': 'RuntimeError',
+    'Cause': '{"errorMessage": "No active exception to reraise", "errorType": "RuntimeError", "stackTrace": ["  File \\"/var/task/app.py\\", line 3, in lambda_handler\\n    raise\\n"]}'
+}
+```
 
+### Lambda Failure Destination
 
+Lambda supports triggering other services, including another Lambda function,
+on failure. Use the [`DestinationConfig` under
+`EventInvokeConfig`](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-eventinvokeconfig-destinationconfig.html)
+to add error (or results) forwarding. See Background: Retry for an example.
+
+If the failed lambda is configured with retries, the failure destination
+lambda will be triggered only when all retries fail.
+
+The failure destination lambda receives the following as the input `event`:
+
+```python
+{
+    'version': '1.0',
+    'timestamp': '2022-01-05T22:01:09.159Z',
+    'requestContext': {
+        'requestId': 'd57edd62-2b30-4db9-bf45-adb4bd8c37fa',
+        'functionArn': 'arn:aws:lambda:us-west-1:746167823857:function:unum-catch-SecondFunction-9OnzpWLAbhA9:$LATEST',
+        'condition': 'RetriesExhausted',
+        'approximateInvokeCount': 2
+    },
+    'requestPayload': {
+        'Data': {
+            'Source': 'http',
+            'Value': {}
+        },
+        'Session': '039a98b6-f051-4a8f-be73-b60da1ca954b'
+    }, 
+    'responseContext': {
+        'statusCode': 200,
+        'executedVersion': '$LATEST',
+        'functionError': 'Unhandled'
+    },
+    'responsePayload': {
+        'errorMessage': 'No active exception to reraise',
+        'errorType': 'RuntimeError',
+        'stackTrace': ['  File "/var/task/wrapper.py", line 233, in lambda_handler\n    user_function_output = user_lambda(user_function_input, context)\n', '  File "/var/task/app.py", line 4, in lambda_handler\n    raise\n']
+    }
+}
+
+```
+
+`requestContext` describes the last request to the *failed* lambda before the failure destination is triggered:
+
+* `requestId`: the AWS request ID of the last request to the *failed* lambda
+  (in this case
+  `arn:aws:lambda:us-west-1:746167823857:function:unum-catch-SecondFunction-9OnzpWLAbhA9`)
+  before all retries are exhausted and failure destination triggered.
+
+* `functionArn`: AWS ARN of the *failed* lambda
+
+* `condition`: why the failure destination is triggered
+
+* `approximateInvokeCount`: How many time the *failed* lambda run
+
+`requestPayload` is the input data to the failed lambda. Because
+`unum-catch-SecondFunction-9OnzpWLAbhA9` is a Unum function, the input payload
+includes a `Session` field.
+
+`responseContext`: The response from *AWS Lambda*. This is the response a
+client would get if *synchronously* invoking
+`unum-catch-SecondFunction-9OnzpWLAbhA9` from the command line.
+
+`responsePayload`: The response from *AWS Lambda*. This is the response a
+client would get *to its `<outfile>`* (see `aws lambda invoke help`) if
+*synchronously* invoking `unum-catch-SecondFunction-9OnzpWLAbhA9` from the
+command line.
+
+## Unum support for progression
 
 An important assumption when reasoning about error handling is that the
 orchestrator mostly does not fail. For example, for retries to work, Unum
@@ -169,4 +263,11 @@ TBA: When Step Functions fail in the presence of `Catch` logic.
 
 TBA: When Lambda failure destination fails.
 
+
+
+Does not require `Catch`. Can always fail and do the same thing.
+
+For functions with catch, triggered the customized error handling function.
+For all other functions, trigger the default function that simply fails the
+workflow execute and write to the intermediate data store.
 
