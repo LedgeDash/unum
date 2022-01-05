@@ -38,7 +38,7 @@ function from the web console, for instance, is synchronous and failures do
 not lead to retries.
 
 A retry will have the same `aws_request_id` as the original execution. Here's
-what in the `context` argument:
+whati's in the `context` argument:
 
 ```python
 {
@@ -56,7 +56,8 @@ what in the `context` argument:
 ```
 
 However, for this to work, functions need to first save the `aws_request_id`
-in a data store persistent across invocations (e.g., DynamoDB).
+in a data store persistent across invocations (e.g., DynamoDB) so that a retry
+execution can compare and know that it is a retry.
 
 ### Step Functions
 
@@ -82,7 +83,7 @@ For example,
 }
 ```
 
-Step Function retries do not rely on Lambda's retry functionality. In fact,
+Step Functions retries do not rely on Lambda's retry functionality. In fact,
 retry lambda executions have different `aws_request_id` values in the
 `context` (confirmed with the `RetryOnlySF` in
 `experiments/catch/step-fucntions`).
