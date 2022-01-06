@@ -104,48 +104,6 @@ subsequent retry a series of `LambdaFunctionScheduled`,
 `LambdaFunctionSucceeded` followed by a `TaskStateExited` or
 `ExecutionFailed`.
 
-### Unum (old)
-
-The first version of Unum relies on Lambda's retry for error handling. That
-is, failed lambdas are automatically retried by Lambda, whether the failure
-happened during user code or Unum runtime (in fact, from Lambda's perspective,
-"user code" from Unum's perspective and Unum runtime code are all *user*
-code). Unum does not initiate the retry process; Lambda does. A Unum function execution
-does not distinguish whether it's a retry or not. The runtime focuses on
-guaranteeing consistency (i.e., exactly-one-result) using checkpoints such
-that retry executions do not run user code again if a prior execution already
-produced a result.
-
-The number of retry attempts is specified in the template and configured
-during function creation. For example, in the generated `template.yaml` file,
-developers can add `EventInvokeConfig`:
-
-```yaml
-Resources:
-  FirstFunction:
-    Properties:
-      CodeUri: first/
-      Handler: wrapper.lambda_handler
-      Policies:
-        - AWSLambdaRole
-        - AmazonDynamoDBFullAccess
-        - AmazonS3FullAccess
-        - AWSLambdaBasicExecutionRole
-      Runtime: python3.8
-      EventInvokeConfig:
-          MaximumRetryAttempts: 1
-    Type: AWS::Serverless::Function
-```
-
-This is piggybacking on Lambda or SAM's support to configure the number of
-retry attempts. Alternatively, we can add a field in `unum-template.yaml` and
-have the frontend compiler generate the `EventInvokeConfig` field in the
-`template.yaml`. If not specified, the default number of retries is 2.
-
-Synchronous invocations of the entry function can simply return the error
-messgae if failed. Lambda actually does not retry for synchronous invocations.
-
-
 
 ## Background: Catch
 
@@ -248,26 +206,150 @@ client would get *to its `<outfile>`* (see `aws lambda invoke help`) if
 *synchronously* invoking `unum-catch-SecondFunction-9OnzpWLAbhA9` from the
 command line.
 
-## Unum support for progression
+## Error Handling in Unum
+
+Unum uses Lambda retries to implement retries and failure destinations for
+catching errors. Developers can express workflow retries and catches using the
+`Retry` and `Catch` field in Step Functions. For functions without catchers,
+Unum triggers a generic error handling lambda that writes the failure message
+to the intermediate data store with the execution's session ID that identifies
+the particular failed execution.
 
 An important assumption when reasoning about error handling is that the
-orchestrator mostly does not fail. For example, for retries to work, Unum
-relies on the assumption that Lambda will indeed retry the specified number of
-times. If Lambda fails to do that, there's very little that Unum can do.
-Similarly, when a Step Functions definition specifies that a state should
-retry X number of times, it relies on the Step Functions not crashing to do
-the retry.
+orchestrator does not fail. For example, for retries to work, Unum relies on
+the assumption that Lambda will indeed retry the specified number of times. If
+Lambda fails to do that, there's very little that Unum can do. Similarly, when
+a Step Functions definition specifies that a state should retry X number of
+times, it relies on the Step Functions not crashing to do the retry.
+Similarly, for `Catch` to work, developers rely on Step Functions not
+crashing. And Unum relies on Lambda to reliably trigger the failure
+destination lambda. Unum also assumes that the runtime, including failure
+handling runtime in the failure destination lambdas, are bug-free and do not
+fail.
 
+Given the state of Lambda, Unum can choose to do more or do less in error
+handling. For example, Unum can set retry limit to 0 for all functions such
+that all faults trigger Unum's failure destination lambda. Unum code can then
+take over and "manually" retries the failed function by invoking it again.
+Alternatively, Unum can rely on Lambda's retry feature. Unum's code is simpler
+this way, but we give up a bit of the control.
 
-TBA: When Step Functions fail in the presence of `Catch` logic.
+Furthermore, if we assume that the orchestrator does not fail (i.e., Unum
+runtime does not fail), then we can simply wrap user code and implement catch
+as a branch on user code error. If we do assume lambda can crash arbitrarily
+and inside Unum runtime, we would need another failure destination lambda to
+run after the source function fails.
 
-TBA: When Lambda failure destination fails.
+### Retry
 
+Unum relies on Lambda's retry for error handling. That is, failed lambdas are
+automatically retried by Lambda, whether the failure happened during user code
+or Unum runtime (in fact, from Lambda's perspective, "user code" from Unum's
+perspective and Unum runtime code are all *user* code). Unum does not initiate
+the retry process; Lambda does. A Unum function execution does not distinguish
+whether it's a retry or not. The runtime focuses on guaranteeing consistency
+(i.e., exactly-one-result) using checkpoints such that retry executions do not
+run user code again if a prior execution already produced a result.
 
+The number of retry attempts is specified in the template and configured
+during function creation. For example, in the generated `template.yaml` file,
+developers can add `EventInvokeConfig`:
 
-Does not require `Catch`. Can always fail and do the same thing.
+```yaml
+Resources:
+  FirstFunction:
+    Properties:
+      CodeUri: first/
+      Handler: wrapper.lambda_handler
+      Policies:
+        - AWSLambdaRole
+        - AmazonDynamoDBFullAccess
+        - AmazonS3FullAccess
+        - AWSLambdaBasicExecutionRole
+      Runtime: python3.8
+      EventInvokeConfig:
+          MaximumRetryAttempts: 1
+    Type: AWS::Serverless::Function
+```
+
+This is piggybacking on Lambda or SAM's support to configure the number of
+retry attempts. Alternatively, we can add a field in `unum-template.yaml` and
+have the frontend compiler generate the `EventInvokeConfig` field in the
+`template.yaml`.
+
+If not specified, the default number of retries is 2.
+
+Synchronous invocations of the entry function can simply return the error
+messgae if failed. Lambda actually does not retry for synchronous invocations.
+
+### Catch
+
+Similar to Step Functions, when the max retry fails to resolve the issue, Unum
+triggers a failure destination lambda. Developers can express this logic with
+Step Functions state machine's `Catch` where the catcher's `Next` field points
+to a lambda function that will be the failure destination.
+
+Developers can write catcher functions as regular Unum functions. The Unum
+runtime on the catcher will process the failure destination input payload and
+pass the failed function's input and error message to user code.
+
+```json
+{
+    "Data": {
+                "Source": "error",
+                "Value": {
+                    "Input": {},
+                    "Error Message":""
+                }
+            },
+            "Session": "039a98b6-f051-4a8f-be73-b60da1ca954b"
+}
+```
+
+For functions without catchers, Unum triggers a generic error handling lambda
+that writes the failure message to the intermediate data store with the
+execution's session ID that identifies the particular failed execution.
+
+What about one of the branches fails? What about the lambda performing the
+fan-in fails?
+
+## Support for Progression
 
 For functions with catch, triggered the customized error handling function.
 For all other functions, trigger the default function that simply fails the
 workflow execute and write to the intermediate data store.
 
+
+### Entry function failing
+
+### Limitations and possible remedies
+
+Asynchronous Lambda retries up to 2 times, while step functions can retry a
+state up to 99999999 times. This is a limit that Lambda can increase. Unum can
+also use a failure destination lambda to asynchronously invoke the failed
+function again. The number of retries so far can be embedded in the input
+payload such that no data store writes are needed to keep track of that.
+
+Step Functions retry are per error type (See "Complex retry scenarios" in
+[Error handling in Step
+Functions](https://docs.aws.amazon.com/step-functions/latest/dg/concepts-error-handling.html)).
+Unum can support this semantics if Lambda simply invokes retry executions with
+the error message so that Unum can figure out what was the cause of the
+failure. e.g., timeouts, Lambda runtime issues. For now, Unum can wrap user
+code to distinguish whether it crashed during user code or Unum runtime code.
+
+Developers can can control intervals between retries with Step Functions and
+it supports a backoff. Lambda does not allow programmatically changing retry
+intervals ([See How Lambda handles asynchronous
+invocations](https://docs.aws.amazon.com/lambda/latest/dg/invocation-async.html)).
+Unum can control the retry interval by setting all function retry limit to 0
+and always have the failure destination invoke the source function to retry.
+
+Triggering of failure destination seems to be a lot slower than normal
+asynchronous invocations.
+
+Unum's argument is to show that we can build complex serverless workflows
+without adding new services. This fundamentally requires Lambda to be
+reasonably reliable. For example, invoking a function should run it at least
+once. Specifying retry twice should actually retry twice. A failure
+destination lambda should actually run when the source function fails.
