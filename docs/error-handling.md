@@ -240,6 +240,8 @@ as a branch on user code error. If we do assume lambda can crash arbitrarily
 and inside Unum runtime, we would need another failure destination lambda to
 run after the source function fails.
 
+### Overview
+
 ### Retry
 
 Unum relies on Lambda's retry for error handling. That is, failed lambdas are
