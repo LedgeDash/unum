@@ -1,0 +1,17 @@
+{
+    "Name": "First",
+    "Next": [
+        {
+            "Name": "Second",
+            "InputType": "Scalar"
+        },
+        {
+            "Name": "FirstError",
+            "InputType": "Error"
+        }
+    ],    
+    "Checkpoint": true,
+    "Debug": false,
+    "Retry":3,
+    "Start": true
+}

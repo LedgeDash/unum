@@ -1,0 +1,21 @@
+Globals:
+  ApplicationName: unum-catch-first-user-crash-four
+  UnumIntermediaryDataStoreType: dynamodb
+  UnumIntermediaryDataStoreName: unum-dynamo-test-table
+  FaaSPlatform: aws
+  Checkpoint: true
+  Debug: false
+Functions:
+  First:
+    Properties:
+      CodeUri: first/
+      Runtime: python3.8
+      Start: true
+  FirstError:
+    Properties:
+      CodeUri: first_error/
+      Runtime: python3.8
+  Second:
+    Properties:
+      CodeUri: second/
+      Runtime: python3.8

@@ -1,0 +1,73 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Globals:
+  Function:
+    Environment:
+      Variables:
+        CHECKPOINT: true
+        FAAS_PLATFORM: aws
+        UNUM_INTERMEDIARY_DATASTORE_NAME: unum-dynamo-test-table
+        UNUM_INTERMEDIARY_DATASTORE_TYPE: dynamodb
+    Timeout: 900
+Outputs:
+  FirstFunction:
+    Value: !GetAtt FirstFunction.Arn
+  SecondFunction:
+    Value: !GetAtt SecondFunction.Arn
+Resources:
+  FirstFunction:
+    Properties:
+      CodeUri: first/
+      Handler: wrapper.lambda_handler
+      Policies:
+        - AWSLambdaRole
+        - AmazonDynamoDBFullAccess
+        - AmazonS3FullAccess
+        - AWSLambdaBasicExecutionRole
+      Runtime: python3.8
+      EventInvokeConfig:
+          MaximumRetryAttempts: 2
+    Type: AWS::Serverless::Function
+  SecondFunction:
+    Properties:
+      CodeUri: second/
+      Handler: wrapper.lambda_handler
+      Policies:
+        - AWSLambdaRole
+        - AmazonDynamoDBFullAccess
+        - AmazonS3FullAccess
+        - AWSLambdaBasicExecutionRole
+      Runtime: python3.8
+      EventInvokeConfig:
+          MaximumRetryAttempts: 1
+          DestinationConfig:
+            OnFailure:
+                Type: Lambda
+                Destination: !GetAtt SecondErrorFunction.Arn
+    Type: AWS::Serverless::Function
+  FirstErrorFunction:
+    Properties:
+      CodeUri: first_error/
+      Handler: app.lambda_handler
+      Policies:
+        - AWSLambdaRole
+        - AmazonDynamoDBFullAccess
+        - AmazonS3FullAccess
+        - AWSLambdaBasicExecutionRole
+      Runtime: python3.8
+      EventInvokeConfig:
+          MaximumRetryAttempts: 2
+    Type: AWS::Serverless::Function
+  SecondErrorFunction:
+    Properties:
+      CodeUri: second_error/
+      Handler: app.lambda_handler
+      Policies:
+        - AWSLambdaRole
+        - AmazonDynamoDBFullAccess
+        - AmazonS3FullAccess
+        - AWSLambdaBasicExecutionRole
+      Runtime: python3.8
+      EventInvokeConfig:
+          MaximumRetryAttempts: 2
+    Type: AWS::Serverless::Function
+Transform: AWS::Serverless-2016-10-31

@@ -1,0 +1,80 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Globals:
+  Function:
+    Environment:
+      Variables:
+        CHECKPOINT: true
+        FAAS_PLATFORM: aws
+        UNUM_INTERMEDIARY_DATASTORE_NAME: unum-dynamo-test-table
+        UNUM_INTERMEDIARY_DATASTORE_TYPE: dynamodb
+    Timeout: 900
+Outputs:
+  FirstErrorFunction:
+    Value: !GetAtt FirstErrorFunction.Arn
+  FirstFunction:
+    Value: !GetAtt FirstFunction.Arn
+  SecondFunction:
+    Value: !GetAtt SecondFunction.Arn
+  UnumFailureDestFunction:
+    Value: !GetAtt UnumFailureDestFunction.Arn
+Resources:
+  FirstErrorFunction:
+    Properties:
+      CodeUri: first_error/
+      Handler: wrapper.lambda_handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - AmazonDynamoDBFullAccess
+        - AmazonS3FullAccess
+        - AWSLambdaRole
+      Runtime: python3.8
+      EventInvokeConfig:
+          MaximumRetryAttempts: 0
+    Type: AWS::Serverless::Function
+
+  FirstFunction:
+    Properties:
+      CodeUri: first/
+      Handler: wrapper.lambda_handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - AmazonDynamoDBFullAccess
+        - AmazonS3FullAccess
+        - AWSLambdaRole
+      Runtime: python3.8
+      EventInvokeConfig:
+        MaximumRetryAttempts: 0
+        DestinationConfig:
+          OnFailure:
+              Type: Lambda
+              Destination: !GetAtt UnumFailureDestFunction.Arn
+    Type: AWS::Serverless::Function
+  SecondFunction:
+    Properties:
+      CodeUri: second/
+      Handler: wrapper.lambda_handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - AmazonDynamoDBFullAccess
+        - AmazonS3FullAccess
+        - AWSLambdaRole
+      Runtime: python3.8
+      EventInvokeConfig:
+          MaximumRetryAttempts: 0
+          DestinationConfig:
+          OnFailure:
+              Type: Lambda
+              Destination: !GetAtt UnumFailureDestFunction.Arn
+    Type: AWS::Serverless::Function
+  UnumFailureDestFunction:
+    Properties:
+      CodeUri: unum_failure_dest/
+      Handler: app.lambda_handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - AmazonDynamoDBFullAccess
+        - AmazonS3FullAccess
+        - AWSLambdaRole
+      Runtime: python3.8
+    Type: AWS::Serverless::Function
+Transform: AWS::Serverless-2016-10-31
