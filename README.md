@@ -2,6 +2,8 @@
 
 Unum is a system for building and running large FaaS applications that consist of many FaaS functions. A key differentiator of Unum is the ability to run on existing FaaS platforms (e.g., AWS Lambda) without relying on orchestrator services (e.g., AWS Step Functions), while offering the same conveniences and guarantees of state-of-the-art orchestrators. Application developers can express workflows as AWS Step Functions state machines. Unum compiles the state machines into a set of Lambda functions and distributes the orchestration logic of the state machines to the Lambda functions. During execution, a Unum runtime wraps each function and provides orchestration, error handling and execution guarantees in a decentralized fashion. All without a separate orchestrator service.
 
+[//]: # (Unum supports all patterns from AWS Step Functions. Including: List here. What are the other orchestrators with additional patterns not covered by Step Functions?)
+
 unum application repository:
 [unum-appstore](https://github.com/LedgeDash/unum-appstore)
 
