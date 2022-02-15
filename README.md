@@ -1,23 +1,9 @@
-unum is a system for building and running stateful FaaS applications.
+# ![Unum](https://github.com/LedgeDash/unum/blob/main/docs/assets/logo.png "Unum Logo")
+
+Unum is a system for building and running large FaaS applications that consist of many FaaS functions. A key differentiator of Unum is the ability to run on existing FaaS platforms (e.g., AWS Lambda) without relying on orchestrator services (e.g., AWS Step Functions), while offering the same conveniences and guarantees of state-of-the-art orchestrators. Application developers can express workflows as AWS Step Functions state machines. Unum compiles the state machines into a set of Lambda functions and distributes the orchestration logic of the state machines to the Lambda functions. During execution, a Unum runtime wraps each function and provides orchestration, error handling and execution guarantees in a decentralized fashion. All without a separate orchestrator service.
 
 unum application repository:
 [unum-appstore](https://github.com/LedgeDash/unum-appstore)
-
-Minimalistic FaaS Workflow with Distributed Coordination
-
-<!-- Traditionally, stateful FaaS applications are built on platform-specific
-coordinators (e.g., Step Functions, Durable Functions Orchestration).
-Coordinators are long-running stateful processes that are independent of the
-FaaS system where functions execute. Programmers write workflows in the
-language of the particular coordinator (e.g., [Amazon States
-Language](https://states-language.net/) for AWS Step Functions), and the
-workflow code is executed by the provider's custom-made coordinator system.
-The system launches a coordinator process for each invocation of an
-application, and the process runs until the entire workflow completes.
-
-Coordinators centralize the orchestration logic and make all the orchestration
-decisions. All FaaS functions are launched by the coordinator and all
-functions' outputs are first sent back to the coordinator. -->
 
 # Getting Started
 
