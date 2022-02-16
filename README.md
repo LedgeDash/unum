@@ -1,13 +1,16 @@
 # ![Unum](https://github.com/LedgeDash/unum/blob/main/docs/assets/logo.png "Unum Logo")
 
-Unum is a system for building and running large FaaS applications that consist of many FaaS functions. A key differentiator of Unum is the ability to run complex FaaS applications without relying on orchestrator services (e.g., AWS Step Functions), while offering the same conveniences and guarantees of state-of-the-art orchestrators. Application developers can express applications as AWS Step Functions state machines. Unum compiles the orchestration logic in the state machine into an intermediate representation and distributes it to the Lambda functions. During execution, a Unum runtime wraps each function and provides orchestration, error handling and execution guarantees in a decentralized fashion, all without a separate orchestrator service.
+Unum is a system for building and running large FaaS applications that consist of many FaaS functions.
+
+A key differentiator of Unum is the ability to run complex FaaS applications without relying on orchestrator services (e.g., AWS Step Functions), while offering the same conveniences and guarantees of state-of-the-art orchestrators.
+
+Application developers can express applications as AWS Step Functions state machines. Unum compiles the orchestration logic in the state machine into an intermediate representation and distributes it to the Lambda functions. During execution, a Unum runtime wraps each function and provides orchestration, error handling and exactly-once execution guarantees in a decentralized fashion, all without a separate orchestrator service.
 
 [//]: # (Unum supports all patterns from AWS Step Functions. Including: List here. What are the other orchestrators with additional patterns not covered by Step Functions?)
 
-Current Unum implementation supports Python functions on AWS.
+[//]: # (Current Unum implementation supports Python functions on AWS.)
 
-unum application repository:
-[unum-appstore](https://github.com/LedgeDash/unum-appstore)
+To see examples of Unum applications, visit the [Unum application repo](https://github.com/LedgeDash/unum-appstore).
 
 # Getting Started
 
