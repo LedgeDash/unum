@@ -35,7 +35,7 @@ myapp/
    |- requirements.txt
 ```
 
-`unum-template.yaml` is the Unum template for the application, `unum-step-functions.json` is the application definition written as AWS Step Functions, and each component FaaS function has its app logic in `app.py` and any Python dependencies listed in `requirements.txt`. If you are familiar with writing serverless applications on AWS, you might notice that this programming interface with Unum resembles that of regular AWS Lambda and Step Functions if you are using developement tools such as AWS SAM or CloudFormation.
+`unum-template.yaml` is the Unum template for the application, `unum-step-functions.json` is the application definition written as AWS Step Functions, and each component FaaS function has its own directory where the app logic lives in `app.py` and any Python dependencies are listed in `requirements.txt`. If you are familiar with writing serverless applications on AWS, you might notice that this programming interface with Unum resembles that of regular AWS Lambda and Step Functions if you are using developement tools such as AWS SAM or CloudFormation.
 
 ## Building and Deploying
 
