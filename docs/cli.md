@@ -93,8 +93,6 @@ $ unum-cli compile
 [--workflow-definition <PATH_TO_FILE>]
 ```
 
-
-
 Given a Unum application, compile it into the Unum IR.
 
 Unum application = 
@@ -112,7 +110,7 @@ Unum IR =
 2. Unum configuration files, one for each function, including added functions
 3. Updated template file to include the added functions
 
-
+Run this command inside a Unum application directory.
 
 By default, the CLI looks for a `unum-template.yaml` file in the current directory. Users can specify `--unum-template <PATH_TO_FILE>` to overwrite the default behavior.
 

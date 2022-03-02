@@ -734,35 +734,50 @@ def compile_workflow(args):
     print(args.platform)
     print(type(args))
 
+#-
 
-# def init(args, logger):
+def download_github_directory(repo, github_dir, local_dir):
+    '''Download the directory `github_dir` from `repo` into a local directory
+    `local_dir`.
 
-def download_template(template_name, app_name):
-    '''Download the starter files from the Unum appstore github repo
+    If `github_dir` contains other directories, this function recursively
+    downloads all child directories.
 
     Side effects: adding files and directories to the directory named
-    `app_name`
+    `local_dir`
     '''
-    pass
+    import base64
+    directory_contents = repo.get_contents(github_dir)
 
-def get_template_list():
-    '''Return a list of strings that are the names of starter templates
-    in the Unum appstore github repo
+    for f in directory_contents:
+        local_file_name = "/".join(f.path.split('/')[1:])
+
+        if f.type == 'dir':
+            os.makedirs(f'{local_dir}/{local_file_name}')
+            download_github_directory(repo, f.path, local_dir)
+        else:
+            with open(f'{local_dir}/{local_file_name}', "wb") as file_out:
+                file_text = base64.b64decode(f.content)
+                file_out.write(file_text)
+
+
+def get_directory_list(repo):
+    '''Return a list of strings that are the names of directories in a github
+    repository `repo`.
 
     No side effects
     '''
-    template_list = ['hello-world', 'map', 'parallel']
-    return template_list
+    contents = repo.get_contents("")
+    app_list = [f.path for f in contents if f.type =="dir" ]
+
+    return app_list
    
 
 def main():
 
     import shutil
-    
     import base64
-    from github import Github
-    git = Github()
-
+    
     import logging
     logger = logging.getLogger(__name__)
 
@@ -796,6 +811,19 @@ def main():
     args = parser.parse_args()
 
     if args.command =='init':
+
+        # fail fast if cannot download the Unum runtime, without creating the
+        # application directory
+        try:
+            from github import Github
+            git = Github()
+
+            unum_repo = git.get_repo("LedgeDash/unum")
+            unum_runtime = unum_repo.get_contents("runtime")
+        except:
+            logger.error(f'Cannot access Unum runtime repo')
+            sys.exit(1)
+
         app_name = args.name
 
         # create the {app_name} directory under the current directory
@@ -808,47 +836,72 @@ def main():
             logger.error(f'Failed to create `{app_name}` directory due to {e}')
             sys.exit(1)
 
-        # if starting from a starter app, download the starter files into
-        # {app_name} directory from the Unum appstore github repo
-        if args.template:
-            template_list = get_template_list()
-
-            print('Which template do you want:')
-            for i, t in enumerate(template_list):
-                print(f'    {i}. {t}')
-            s = int(input('Type your template number: '))
-
-            try:
-                logger.info(f'Downloading template `{template_list[s]}`')
-                download_template(template_list[s], app_name)
-                logger.debug(f'Template `{template_list[s]}` downloaded')
-
-            except IndexError as e:
-                logger.error('Invalid template number. Continue initialization without a template.')
-            
-        logger.info(f'Setting up {app_name}')
-
-        # create {app_name}/.unum directory and download the Unum runtime into
+        # create {app_name}/.unum directory, download the Unum runtime into
         # {app_name}/.unum/runtime from Unum's github repo
         os.makedirs(f'{app_name}/.unum')
         os.makedirs(f'{app_name}/.unum/runtime')
 
         try:
-            repo = git.get_repo("LedgeDash/unum")
-            runtime = repo.get_contents("runtime")
-
-            for f in runtime:
+            for f in unum_runtime:
                 logger.info(f'Downloading {f.path} into {app_name}/.unum/{f.path}')
                 with open(f'{app_name}/.unum/{f.path}', "wb") as file_out:
                     file_text = base64.b64decode(f.content)
                     file_out.write(file_text)
 
+        except Exception as e:
+            logger.error(f'Failed to download Unum runtime')
+            logger.error(e)
+            shutil.rmtree(f'{app_name}')
+            sys.exit(1)
+
+
+        # download the application starter files into {app_name} directory
+        # from the Unum appstore github repo
+        try:
+            unum_app_repo = git.get_repo("LedgeDash/unum-appstore")
+        except:
+            logger.error(f'Cannot access Unum appstore')
+            logger.error(e)
+            logger.warning(f'Continue without starter application files')
+            logger.debug(f'{app_name} created')
+            sys.exit(1)
+
+        starter_app = "hello-world"
+        if args.template:
+            try:
+                template_list = get_directory_list(unum_app_repo)
+
+            except:
+                logger.error(f'Failed to get the list of starter apps from Unum appstore')
+                logger.error(e)
+                logger.warning(f'Continue initialization with the default template')
+
+            else:
+                print('Which app template do you want to start with:')
+                for i, t in enumerate(template_list):
+                    print(f'    {i}. {t}')
+                s = int(input('Type your number: '))
+
+                try:
+                    starter_app = template_list[s]
+                except IndexError as e:
+                    logger.error('Invalid number. Continue initialization with the default template')
+                    starter_app = "hello-world"
+
+        try:
+            logger.info(f'Downloading starter template `{starter_app}`')
+            download_github_directory(unum_app_repo, starter_app, app_name)
+
+            logger.debug(f'Template `{starter_app}` downloaded')
+
             logger.debug(f'{app_name} created')
 
         except Exception as e:
-            logger.error(f'Failed to set up {app_name}')
+            logger.error(f'Failed to download {starter_app}')
             logger.error(e)
-            shutil.rmtree(f'{app_name}')
+            logger.warning(f'Continue without starter application files')
+            logger.debug(f'{app_name} created')
+
 
     elif args.command == 'compile':
         compile_workflow(args)
