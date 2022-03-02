@@ -20,7 +20,7 @@ App developers can write serverless applications with Unum similarly to [AWS SAM
 
 Practically, a typical Unum application with three FaaS functions written in Python would look something like the following:
 
-```
+```text
 myapp/
  |- unum-template.yaml
  |- unum-step-functions.json

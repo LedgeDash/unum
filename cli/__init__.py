@@ -756,6 +756,7 @@ def get_template_list():
    
 
 def main():
+
     import shutil
     
     import base64
@@ -795,7 +796,6 @@ def main():
     args = parser.parse_args()
 
     if args.command =='init':
-
         app_name = args.name
 
         # create the {app_name} directory under the current directory
@@ -811,7 +811,6 @@ def main():
         # if starting from a starter app, download the starter files into
         # {app_name} directory from the Unum appstore github repo
         if args.template:
-
             template_list = get_template_list()
 
             print('Which template do you want:')

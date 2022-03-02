@@ -62,7 +62,29 @@ myapp/
 
 ## Commands
 
-### Compile
+### init
+
+```bash
+$ unum-cli init
+--name <VALUE>
+[--template]
+```
+
+Create a directory named `VALUE` in the current directory and initialize it as a  Unum application.
+
+Use the `--name <VALUE>` to choose the name of your application. The CLI will create a directory named `VALUE` under the current directory.
+
+Use the `--template` option to select from available starter projects in the Unum appstore. Examples include applications that use chain, map, or fan-out patterns.
+
+If `--template` option is not used, the CLI will set up a basic boilerplate application with 
+
+1. A Unum template file named `unum-template.yaml`
+2. Two function directories with one named `hello` and the other named `world`
+3. A Step Function definition, named `unum-step-functions.json`, that chains the two functions
+
+
+
+### compile
 
 ```bash
 $ unum-cli compile
@@ -94,11 +116,11 @@ Unum IR =
 
 By default, the CLI looks for a `unum-template.yaml` file in the current directory. Users can specify `--unum-template <PATH_TO_FILE>` to overwrite the default behavior.
 
-Users can specify the workflow type and where the workflow definition is in the Unum template (See `WORKFLOW_TYPE` and `WORKFLOW_DEFINITION` in the [Unum Template Documentation]()).
+Users can specify the workflow type and where the workflow definition is in the Unum template (See `WorkflowType` and `WorkflowDefinition` in the [Unum Template Documentation]()).
 
-Users must either set `WORKFLOW_TYPE` in the Unum template or  pass in `--workflow-type <VALUE>`.
+Users must either set `WorkflowType` in the Unum template or  pass in `--workflow-type <VALUE>`.
 
-Users can specify where the workflow definition is via `WORKFLOW_DEFINITION` in the Unum template. Passing in `--workflow-definition <PATH_TO_FILE>` takes precedence over the value of `WORKFLOW_DEFINITION`.  If no value is specified via `WORKFLOW_DEFINITION` or `--workflow-definition`, CLI defaults to `unum-step-functions.json` if the workflow type is "step-functions".
+Users can specify where the workflow definition is via `WorkflowDefinition` in the Unum template. Passing in `--workflow-definition <PATH_TO_FILE>` takes precedence over the value of `WorkflowDefinition`.  If no value is specified via `WorkflowDefinition` or `--workflow-definition`, CLI defaults to `unum-step-functions.json` if the workflow type is "step-functions".
 
 The Unum template contains the names and filesystem locations of all the functions in the application. The CLI checks whether the names match what's in the workflow definition and uses those names to know which function is which step of the workflow.
 
@@ -106,7 +128,7 @@ The Unum template contains the names and filesystem locations of all the functio
 
 
 
-### Build
+### build
 
 Given a Unum IR, generate deployable packages for a specific target platform
 
@@ -125,7 +147,7 @@ Deployable package =
 2. A set of FaaS functions loaded with the Unum runtime and whose entry points
    are the Unum runtime.
 
-### Deploy
+### deploy
 
 Given a platform-specific deployable package, deploy it onto the target platform
 
