@@ -42,7 +42,7 @@ def download_github_directory(repo, github_dir, local_dir):
                 file_out.write(file_text)
 
 
-def get_directory_list(repo):
+def get_github_directory_list(repo):
     '''Return a list of strings that are the names of directories in a github
     repository `repo`.
 
@@ -181,7 +181,7 @@ def main():
         starter_app = "hello-world"
         if args.template:
             try:
-                template_list = get_directory_list(unum_app_repo)
+                template_list = get_github_directory_list(unum_app_repo)
 
             except:
                 logger.error(f'Failed to get the list of starter apps from Unum appstore')
