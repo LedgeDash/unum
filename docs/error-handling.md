@@ -3,7 +3,7 @@
 ## Background: Retry
 
 [Example
-scenario](https://docs.aws.amazon.com/step-functions/latest/dg/welcome.html)
+scenario](https://docs.aws.amazon.com/step-functions/latest/dg/welcome.html#welcome-error)
 for demonstrating the utility of retry:
 
 A customer requests a username. The first time, your customer’s request is
