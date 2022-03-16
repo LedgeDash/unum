@@ -52,10 +52,12 @@ def get_github_directory_list(repo):
     app_list = [f.path for f in contents if f.type =="dir" ]
 
     return app_list
-   
+
+
+def unum_compile(args):
+    pass
 
 def main():
-
     import shutil
     import base64
     
@@ -84,9 +86,9 @@ def main():
 
     # compile commmand parser
     compile_parser = subparsers.add_parser("compile", description="compile an application to Unum IR")
-    compile_parser.add_argument('-t', '--workflow-type', required=True, help="workflow type")
-    compile_parser.add_argument('-w', '--workflow-definition', required=True, help="workflow definition")
-    compile_parser.add_argument('-u', '--unum-template', required=True, help="Unum template file")
+    compile_parser.add_argument('-t', '--workflow-type', required=False, help="workflow type")
+    compile_parser.add_argument('-w', '--workflow-definition', required=False, help="workflow definition")
+    compile_parser.add_argument('-u', '--unum-template', required=False, help="Unum template file")
     compile_parser.add_argument('-o', '--optimize', required=False, choices=['trim'], help="optimizations")
 
     # build command parser
@@ -214,9 +216,68 @@ def main():
             logger.warning(f'Continue without starter application files')
             logger.debug(f'{app_name} created')
 
-
     elif args.command == 'compile':
-        compile_workflow(args)
+        '''Compile from frontend definition to Unum IR
+
+        Supported frontends:
+           1. AWS Step Functions (Amazon State Language)
+
+        This function handles creating the related files inside .unum/ while the
+        frontend module are purely functional
+        '''
+
+        # read from args.unum_template if some options are not specified on
+        # the command line.
+        if args.unum_template == None or args.workflow_type == None or args.workflow_definition == None:
+
+            if args.unum_template == None:
+                logger.warning('"UnumTemplate" not defined. Default to unum-template.yaml')
+                args.unum_template = "unum-template.yaml"
+
+            try:
+                with open(args.unum_template) as tf:
+                    app_template = load_yaml(tf.read())
+                    # print(app_template)
+            except Exception as e:
+                logger.error(f'{args.unum_template} does not exist')
+                exit(1)
+
+            try:
+                if args.workflow_definition == None:
+                    args.workflow_definition = app_template['Globals']['WorkflowDefinition']
+            except KeyError as e:
+                logger.error('"WorkflowDefinition" not defined')
+                exit(1)
+
+            try:
+                if args.workflow_type == None:
+                    args.workflow_type = app_template['Globals']['WorkflowType']
+            except KeyError as e:
+                logger.error('"WorkflowType" not defined')
+                exit(1)
+
+        print(args)
+
+        # import the right frontend compiler based on args.workflow_type.
+        # pass the content of workflow definition and unum-template as is to the frontend compiler
+        if args.workflow_type == 'step-functions':
+            from frontend import step_functions as fc
+
+            try:
+                with open(args.workflow_definition) as f:
+                    state_machine = json.loads(f.read())
+            except Exception as e:
+                logger.error('Could not load Step Functions workflow definition')
+                raise e
+
+            ir = fc.translate_state_machine(state_machine)
+            print(ir)
+
+        elif args.workflow_type == 'azure':
+            pass
+        else:
+            raise IOError(f'Unknown WorkflowType: {args.workflow_type}')
+
     elif args.command == 'build':
         build(args)
     elif args.command == 'deploy':
