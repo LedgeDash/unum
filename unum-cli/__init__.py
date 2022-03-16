@@ -256,7 +256,7 @@ def main():
                 logger.error('"WorkflowType" not defined')
                 exit(1)
 
-        print(args)
+        # print(args)
 
         # import the right frontend compiler based on args.workflow_type.
         # pass the content of workflow definition and unum-template as is to the frontend compiler
@@ -267,11 +267,50 @@ def main():
                 with open(args.workflow_definition) as f:
                     state_machine = json.loads(f.read())
             except Exception as e:
-                logger.error('Could not load Step Functions workflow definition')
+                logger.error(f'Could not load Step Functions workflow definition: {args.workflow_definition}')
                 raise e
 
-            ir = fc.translate_state_machine(state_machine)
-            print(ir)
+            try:
+                with open(args.unum_template) as f:
+                    app_template = load_yaml(f.read())
+            except Exception as e:
+                logger.error(f'Could not load Unum template {args.unum_template}')
+                raise e
+
+            ir = fc.compile(state_machine, app_template, args.optimize)
+            # print(ir)
+
+            # Save generated IR into .unum/
+            update_template = False
+            for f in ir['unum IR']:
+                if f['Name'] in app_template['Functions']:
+                    function_dir = f".unum/{app_template['Functions'][f['Name']]['Properties']['CodeUri']}"
+                else:
+                    function_dir = f".unum/{f['Name']}"
+                    update_template = True
+
+                try:
+                    # print(function_dir)
+                    os.makedirs(function_dir)
+                except FileExistsError as e:
+                    pass
+                except Exception as e:
+                    logger.error(f'Could not create {function_dir}')
+
+                try:
+                    with open(os.path.join(function_dir, 'unum_config.json'), 'w') as cf:
+                        cf.write(json.dumps(f, indent=4))
+                except Exception as e:
+                    raise e
+            
+            # if additional functions were generated, update the unum-template file
+            if update_template:
+                pass
+
+            # save the template file after IR compilation into .unum/ always
+
+            logger.debug('Unum IR generated from Step Functions')
+
 
         elif args.workflow_type == 'azure':
             pass

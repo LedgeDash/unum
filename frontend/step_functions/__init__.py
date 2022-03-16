@@ -213,7 +213,46 @@ def _translate_state_machine(state_name, state_machine):
                 "Exit unum function": unum_parallel_sink
             }
 
+def compile(state_machine, template, optimize):
 
+    ir = translate_state_machine(state_machine)
+
+    # Add global configurations from the Unum template
+
+    # Checkpoint
+    for c in ir["unum IR"]:
+        if "Next" in c:
+            if isinstance(c["Next"],dict):
+                if "Fan-in" in c["Next"]["InputType"]:
+                    c["Checkpoint"] = True
+                else:
+                     c["Checkpoint"] = template["Globals"]["Checkpoint"]
+            elif isinstance(c["Next"], list):
+                ret = False
+                for n in c["Next"]:
+                    if "Fan-in" in n["InputType"]:
+                        ret = True
+                        break
+                if ret:
+                    c["Checkpoint"] = True
+                else:
+                    c["Checkpoint"] = template["Globals"]["Checkpoint"]
+
+        else:
+            c["Checkpoint"] = template["Globals"]["Checkpoint"]
+
+    # Debug
+    if "Debug" in template["Globals"]:
+        for c in ir["unum IR"]:
+            c["Debug"] = template["Globals"]["Debug"]
+
+    # mark the start function
+    ir["Entry unum function"]["Start"] = True
+
+    if optimize:
+        trim(ir)
+
+    return ir
 
 def translate_state_machine(state_machine):
     ''' Given a state machine, return its IR, entry state and end state
@@ -299,172 +338,12 @@ def trim(ir):
 
 
 def clean(args):
-    # Check if there's a .{unum-template}.yaml.old file in the directory. If
-    # so, the application was compiled.
-
-    if os.path.isfile(f'.{args.template}.old') == False:
-        return
-
-    with open(args.template) as f:
-        new_template = load_yaml(f.read())
-    with open(f'.{args.template}.old') as f:
-        old_template = load_yaml(f.read())
-
-    # remove created functions
-    new_functions = [f for f in new_template['Functions'] if f not in old_template['Functions']]
-    print(f'Created functions to remove: {new_functions}')
-    for d in new_functions:
-        shutil.rmtree(d)
-
-    # removed generated unum_config.json
-    for f in old_template["Functions"]:
-        function_dir = old_template["Functions"][f]["Properties"]["CodeUri"]
-        os.remove(f'{function_dir}unum_config.json')
-
-    # restore unmu template file
-    os.rename(f'.{args.template}.old', args.template)
+    pass
 
 
 
 def main():
-    parser = argparse.ArgumentParser(description='unmu frontend compiler for AWS Step Functions',
-        # usage = "unum-cli [options] <command> <subcommand> [<subcommand> ...] [parameters]",
-        #epilog="To see help text for a specific command, use unum-cli <command> -h"
-        )
-    parser.add_argument('-w', '--workflow',
-        help="Step Functions state machine [Default: unum-step-functions.json]",
-        default = 'unum-step-functions.json')
-    parser.add_argument('-t', '--template',
-        help="unum template [Default: unum-template.yaml]", default = 'unum-template.yaml')
-    parser.add_argument('-p', '--print',
-        help="print the generate IR to stdout", action="store_true", required=False)
-    parser.add_argument('-u', '--update',
-        help="update the function's unum_config", action="store_true", required=False)
-    parser.add_argument('-o', '--optimize',
-        help="optimizations", choices=['trim', 'foo'], required=False)
-    parser.add_argument('-c', '--clean',
-        help="clean", action="store_true", required=False)
-    parser.add_argument('--fanin_wait',
-        help="One of the fan-out function wait for others before performing fan-in",
-        action="store_true", required=False)
-
-    args = parser.parse_args()
-
-    print(f'Workflow definition: {args.workflow}\nunum template: {args.template}')
-
-    if args.clean:
-        clean(args)
-        return
-
-    with open(args.workflow) as f:
-        state_machine = json.loads(f.read())
-
-    ir = translate_state_machine(state_machine)
-
-    # Add global configurations from unum-template.yaml
-    with open(args.template) as f:
-        template = load_yaml(f.read())
-
-    # Checkpoint
-    for c in ir["unum IR"]:
-        if "Next" in c:
-            if isinstance(c["Next"],dict):
-                if "Fan-in" in c["Next"]["InputType"]:
-                    c["Checkpoint"] = True
-                else:
-                     c["Checkpoint"] = template["Globals"]["Checkpoint"]
-            elif isinstance(c["Next"], list):
-                ret = False
-                for n in c["Next"]:
-                    if "Fan-in" in n["InputType"]:
-                        ret = True
-                        break
-                if ret:
-                    c["Checkpoint"] = True
-                else:
-                    c["Checkpoint"] = template["Globals"]["Checkpoint"]
-
-        else:
-            c["Checkpoint"] = template["Globals"]["Checkpoint"]
-
-    # Debug
-    if "Debug" in template["Globals"]:
-        for c in ir["unum IR"]:
-            c["Debug"] = template["Globals"]["Debug"]
-
-    # mark the start function
-    ir["Entry unum function"]["Start"] = True
-
-    if args.optimize == "trim":
-        print(f'Trimming IR...')
-        trim(ir)
-
-    # Check fan-in to wait
-    if args.fanin_wait:
-        for c in ir["unum IR"]:
-            if "Next" in c and "Fan-in" in c["Next"]["NextInput"]:
-                c["NextInput"]["Fan-in"]["Wait"] = True
-
-    # Add Next Payload Modifier Pop to functions whose Next field is Fan-in
-    # Doesn't handle the case where the Next field is a list and one of the
-    # continuations is Fan-in
-    for c in ir["unum IR"]:
-        if "Next" in c and isinstance(c["Next"], dict) and "Fan-in" in c["Next"]["InputType"]:
-            c["Next Payload Modifiers"] = ["Pop"]
-
-    if args.print:
-        print("******************************** IR ********************************")
-
-        print(f'{json.dumps(ir, indent=4)}')
-
-    if args.update:
-        workflow_dir = os.path.dirname(args.template)
-        for config in ir["unum IR"]:
-            if config["Name"] in template["Functions"]:
-                function_dir = os.path.join(workflow_dir, template["Functions"][config["Name"]]["Properties"]["CodeUri"])
-                with open(os.path.join(function_dir, 'unum_config.json'), 'w') as f:
-                    f.write(json.dumps(config, indent=4))
-
-            elif config["Name"].startswith("UnumMap") or config["Name"].startswith("UnumParallel"):
-                # update the template
-
-                # if this UnumMap or UnumParallel is the entry function, add
-                # Start: true to the template
-                template["Functions"][config["Name"]] = {
-                    'Properties': {
-                        "CodeUri": f'{config["Name"]}/',
-                        "Runtime": "python3.8"
-                        }
-                    }
-
-                if "Start" in config and config["Start"] == True:
-                    template["Functions"][config["Name"]]["Properties"]["Start"] = True
-
-                # create the directory and inside the directory, create
-                # unum_config.json, __init__.py, requirements.txt and app.py
-                function_dir = os.path.join(workflow_dir, f'{config["Name"]}/')
-                try:
-                    os.mkdir(function_dir)
-                except FileExistsError as e:
-                    pass
-
-                with open(os.path.join(function_dir, '__init__.py'), 'w') as f:
-                    pass
-                with open(os.path.join(function_dir, 'requirements.txt'), 'w') as f:
-                    pass
-                with open(os.path.join(function_dir, 'app.py'), 'w') as f:
-                    f.write(PASS_FUNCTION)
-                with open(os.path.join(function_dir, 'unum_config.json'), 'w') as f:
-                    f.write(json.dumps(config, indent=4))
-
-        # move the old unum-template.yaml file to .unum-template.yaml.old
-        # Save the new template as unum-template.yaml
-        if os.path.isfile(f'.{args.template}.old') == False:
-            os.rename(args.template, f'.{args.template}.old')
-
-        with open(os.path.join(workflow_dir, args.template), 'w') as f:
-            f.write(dump_yaml(template))
-
+    pass
 
 
 if __name__ == '__main__':
