@@ -93,14 +93,12 @@ def ingress(event):
 
     if event["Data"]["Source"] =="http":
         unum.my_gc_tasks = event['GC']
-        print(unum.my_gc_tasks)
         return event["Data"]["Value"]
     else:
         # print(f'Reading user function input from {unum.ds.my_type}')
         # print(f'Target files are: {event["Data"]["Value"]}')
         ckpt_vals = unum.ds.read_input(event["Session"], event["Data"]["Value"])
         unum.my_gc_tasks = [ckpt['GC'] for ckpt in ckpt_vals]
-        print(unum.my_gc_tasks)
 
         return [ckpt["User"] for ckpt in ckpt_vals]
 
@@ -132,13 +130,15 @@ def egress(user_function_output, event):
 
     # Compute all the outgoing edges for this execution.
     #
-    # Outgoing edges are needed for GC.
+    # Outgoing edges are needed for GC *at the next node*.
     #
     # Computing the outgoing edges requires "dry-running" the continuations
     # because of dynamic patterns such as branch and map.
+    #
+    # See Unum.get_my_outgoing_edges for details on how outgoing edges are
+    # computed.
     gc = {
-        'From': unum.get_my_instance_name(event),
-        'To': unum.get_my_outoing_edges(event, user_function_output)
+        unum.get_my_instance_name(event): unum.get_my_outgoing_edges(event, user_function_output)
     }
 
 
@@ -157,6 +157,7 @@ def egress(user_function_output, event):
         'GC': gc,
         "User": user_function_output
     }
+
     t1 = time.perf_counter_ns()
     ret = unum.run_checkpoint(event, checkpoint_data)
     t2 = time.perf_counter_ns()
@@ -200,6 +201,9 @@ def egress(user_function_output, event):
         print(f'Unknown run_checkpoint() return value: {ret}')
 
     session = unum.curr_session
+
+    # Garbage collect my parents' checkpoints
+    unum.run_garbage_collect()
 
     unum.cleanup()
 

@@ -233,15 +233,25 @@ class Unum(object):
 
         @return a list of instance names
         '''
-        next_payload_metadata_list = [c.compute_next_input_payload_metadata(input_payload, user_function_output) for c in self.cont_list]
 
-        outgoing_edges = []
+        if self.my_outgoing_edges == None:
 
-        for payload_metadata, c in zip(next_payload_metadata_list, self.cont_list):
-            if payload_metadata != None:
-                outgoing_edges.append(Unum.compute_instance_name(c.name, payload_metadata))
+            post_modifier_metadata = self.run_next_payload_modifiers(input_payload)
 
-        return outgoing_edges
+            outgoing_edges = []
+
+            for c in self.cont_list:
+                next_payload = c.compute_payload_metadata(input_payload, user_function_output, post_modifier_metadata)
+
+                if isinstance(next_payload, list):
+                    for e in next_payload:
+                        outgoing_edges.append(Unum.compute_instance_name(c.function_name, e))
+                else:
+                    outgoing_edges.append(Unum.compute_instance_name(c.function_name, next_payload))
+
+            self.my_outgoing_edges = outgoing_edges
+
+        return self.my_outgoing_edges
 
 
 
@@ -262,7 +272,7 @@ class Unum(object):
                 session,
                 next_payload_metadata,
                 input_payload,
-                self.curr_unumIndex_list,
+                self.get_my_unum_index_list(input_payload),
                 my_name=self.name,
                 my_curr_instance_name=self.get_my_instance_name(input_payload))
 
@@ -319,6 +329,11 @@ class Unum(object):
 
         # ds successfully writes checkpoint
         return 0
+
+
+
+    def run_garbage_collect(self):
+        print(f'session:{self.curr_session}, tasks: {self.my_gc_tasks}')
 
 
 
@@ -807,6 +822,79 @@ class UnumContinuation(object):
         # print(f"[check_conditional()] The conditional string to be eval: {cond} and it's {eval(cond)}")
         
         return eval(cond)
+
+
+
+    def compute_payload_metadata(self, input_payload, user_function_output, post_modifier_metadata):
+        '''Given my input payload and my user code results, compute the input
+        payload metadata of this continuation
+
+        "Input payload metadata" refers to the input payload less the actual
+        data to user code.
+
+        If this continuation will not be invoked (e.g., due to a false
+        conditional), return None.
+
+        Map continuations will return a list of payloads (dictionaries).
+
+        '''
+        if self.check_conditional(user_function_output, input_payload, Unum.compute_unum_index_list(input_payload)) == False:
+            return None
+
+        if self.input_type == UnumContinuationInputType.SCALAR:
+            payload = {}
+            if self.parallel_size > 1:
+                payload["Fan-out"] = {
+                    "Type": "Parallel",
+                    "Index": self.parallel_index,
+                    "Size": self.parallel_size
+                }
+
+            for f in post_modifier_metadata:
+                if post_modifier_metadata[f] != None:
+                    if f == "Fan-out" and "Fan-out" in payload:
+                        payload["Fan-out"]["OuterLoop"] = post_modifier_metadata[f]
+                    else:
+                        payload[f] = post_modifier_metadata[f]
+
+            return payload
+
+        elif self.input_type == UnumContinuationInputType.FAN_IN:
+            payload = {}
+            for f in post_modifier_metadata:
+                if post_modifier_metadata[f] != None:
+                    if f == "Fan-out" and "Fan-out" in payload:
+                        payload["Fan-out"]["OuterLoop"] = post_modifier_metadata[f]
+                    else:
+                        payload[f] = post_modifier_metadata[f]
+
+            return payload
+
+        elif self.input_type == UnumContinuationInputType.MAP:
+            ret = []
+
+            for i, d in enumerate(user_function_output):
+                payload = {
+                    "Fan-out": {
+                        "Type": "Map",
+                        "Index": i,
+                        "Size": len(user_function_output)
+                    }
+                }
+
+                for f in post_modifier_metadata:
+                    if post_modifier_metadata[f] != None:
+                        if f == "Fan-out":
+                            payload["Fan-out"]["OuterLoop"] = post_modifier_metadata[f]
+                        else:
+                            payload[f] = post_modifier_metadata[f]
+
+                ret.append(payload)
+
+            return ret
+
+        else:
+            print(f'Unknown contintuation type: {self.input_type}')
 
 
 
