@@ -23,6 +23,12 @@ try:
 except Exception as e:
     raise e
 
+# Intermediate data store is passed in via environment variables. The way to
+# do this on Lambda is through the application-wide template file (i.e.,
+# template.yaml in SAM).
+#
+# Alternatively, we can include this information entirely inside the IR (i.e.,
+# unum_config.json). Doing this requires changes to the compiler.
 unum = Unum(config,
     os.environ['UNUM_INTERMEDIARY_DATASTORE_TYPE'],
     os.environ['UNUM_INTERMEDIARY_DATASTORE_NAME'],
@@ -86,11 +92,18 @@ def ingress(event):
     '''
 
     if event["Data"]["Source"] =="http":
+        unum.my_gc_tasks = event['GC']
+        print(unum.my_gc_tasks)
         return event["Data"]["Value"]
     else:
         # print(f'Reading user function input from {unum.ds.my_type}')
         # print(f'Target files are: {event["Data"]["Value"]}')
-        return unum.ds.read_input(event["Session"], event["Data"]["Value"])
+        ckpt_vals = unum.ds.read_input(event["Session"], event["Data"]["Value"])
+        unum.my_gc_tasks = [ckpt['GC'] for ckpt in ckpt_vals]
+        print(unum.my_gc_tasks)
+
+        return [ckpt["User"] for ckpt in ckpt_vals]
+
 
 
 
@@ -117,9 +130,35 @@ def egress(user_function_output, event):
     Checkpoint, construct payload for continuation, invoke continuation
     '''
 
+    # Compute all the outgoing edges for this execution.
+    #
+    # Outgoing edges are needed for GC.
+    #
+    # Computing the outgoing edges requires "dry-running" the continuations
+    # because of dynamic patterns such as branch and map.
+    gc = {
+        'From': unum.get_my_instance_name(event),
+        'To': unum.get_my_outoing_edges(event, user_function_output)
+    }
+
+
     # Checkpoint first, before invoking continuations
+    #
+    # The data written into the checkpoint file is the user code result
+    # (user_function_output) and the outgoing edges of this function.
+    #
+    # The outgoing edges are needed for GC and it must be written to the
+    # checkpoint file for patterns like fan-in, because the aggregation
+    # function will be invoked by only one of the branches and the invoker
+    # branch cannot have complete knowledge on the outgoing branches of its sibling
+    # branches.
+
+    checkpoint_data = {
+        'GC': gc,
+        "User": user_function_output
+    }
     t1 = time.perf_counter_ns()
-    ret = unum.run_checkpoint(event, user_function_output)
+    ret = unum.run_checkpoint(event, checkpoint_data)
     t2 = time.perf_counter_ns()
 
     next_payload_metadata = None
@@ -234,14 +273,6 @@ def lambda_handler(event, context):
         else:
             user_function_output = ckpt_ret
             
-
-        # print(f'[Wrapper] user_function_input: {user_function_input}')
-
-        # if "Session" in event:
-        #     rs = get_random_string(5)
-        #     uerror(event["Session"], f'{config["Name"]}-{rs}-input.json', event)
-        #     uerror(event["Session"], f'{config["Name"]}-{rs}-userfunctioninput.json', user_function_input)
-
         session, next_payload_metadata = egress(user_function_output, event)
 
         return user_function_output, session, next_payload_metadata

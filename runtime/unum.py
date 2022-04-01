@@ -1,4 +1,3 @@
-from app import lambda_handler as user_lambda
 from ds import S3Driver, DynamoDBDriver, UnumIntermediaryDataStore
 import json
 import boto3
@@ -89,6 +88,7 @@ class Unum(object):
             self.entry_function = False
             self.get_session = self._extract_session
 
+        # TODO: Change Next Payload Modifiers to a per continuation feature
         try:
             self.next_payload_modifiers = config['Next Payload Modifiers']
         except KeyError:
@@ -167,6 +167,83 @@ class Unum(object):
         self.previous_checkpoint = False
         # self.curr_next_payload_fanout = None
 
+        # my_gc_tasks and my_outgoing_edges are for garbage collection
+
+        # A dict whose keys are my parent nodes' instance names and values are
+        # that node's outgoing edges (i.e., child nodes' instance names)
+        self.my_gc_tasks = None
+        # A dict whose key is my instance name and values are my outgoing
+        # edges
+        self.my_outgoing_edges = None
+
+
+
+    def get_checkpoint(self, input_payload):
+        '''Return the checkpoint of this instance
+
+        If the checkpoint does not exist, return None. Otherwise, return the
+        data of the checkpoint as a python data structure from json.loads().
+
+        unum calls this function before running the user function. If a
+        checkpoint exists, a prior instance completed at least up to
+        checkpointing and this instance is therefore a duplicate. unum sets
+        self.previous_checkpoint = True to indicate a duplicate.
+
+        @param input_payload dict the `event` from the lambda input
+        '''
+        session = self.get_session(input_payload)
+        instance_name = self.get_my_instance_name(input_payload)
+
+        if self.debug:
+            t1 = time.perf_counter_ns()
+            ds_ret = self.ds.get_checkpoint(session, instance_name)
+            t2 = time.perf_counter_ns()
+
+            print(f'[DS get_checkpoint]{t2-t1}')
+        else:
+            ds_ret = self.ds.get_checkpoint(session, instance_name)
+
+        if ds_ret == None:
+            self.previous_checkpoint = False
+            return None
+
+        self.previous_checkpoint = True
+        return json.loads(ds_ret)
+
+
+
+    def get_my_outgoing_edges(self, input_payload, user_function_output):
+        '''Return the instance names of my downstream functions
+
+        The instance names of my downstream functions represent my outgoing
+        edges.
+
+        As the potential invoker of my downstream functions, I can compute
+        exactly the instance name of my downstream functions because
+
+            1. With my user code output, I can know which of my downstream
+               functions will be invoked
+
+            2. I know the function names of my downstream functions
+
+            3. I'll be creating the input payload of my downstream functions,
+               including filling in the "Fan-out" field
+
+        An instance name = f'{function_name}-unumIndex-{unum_index_str}'
+
+        @return a list of instance names
+        '''
+        next_payload_metadata_list = [c.compute_next_input_payload_metadata(input_payload, user_function_output) for c in self.cont_list]
+
+        outgoing_edges = []
+
+        for payload_metadata, c in zip(next_payload_metadata_list, self.cont_list):
+            if payload_metadata != None:
+                outgoing_edges.append(Unum.compute_instance_name(c.name, payload_metadata))
+
+        return outgoing_edges
+
+
 
     def run_continuation(self, input_payload, user_function_output):
         '''Given the input payload of the invoker (runtime metadata) and the
@@ -187,7 +264,7 @@ class Unum(object):
                 input_payload,
                 self.curr_unumIndex_list,
                 my_name=self.name,
-                my_curr_instance_name=self.get_instance_name)
+                my_curr_instance_name=self.get_my_instance_name(input_payload))
 
         # returning session simply for debugging purposes
         return session, next_payload_metadata
@@ -210,7 +287,7 @@ class Unum(object):
 
         Note that although the checkpoint name is decided by the ds library,
         the instance name is computed here by Unum. It is
-        <function-name>[-unumIndex-$n.$(n-1).....$0]. See get_instance_name() for details.
+        <function-name>[-unumIndex-$n.$(n-1).....$0]. See get_my_instance_name() for details.
 
         Functions that have continuations whose "InputType" is "Fan-in" always
         has "Checkpoint" set to True. Functions that don't have continuations
@@ -218,7 +295,7 @@ class Unum(object):
 
         Users turn workflow-wise checkpoint on and off in the unum template.
         '''
-        # print(f'PRINTING _run_checkpoint. {self.get_session(input_payload)}; {self.get_instance_name(input_payload)}; {user_function_output}')
+        # print(f'PRINTING _run_checkpoint. {self.get_session(input_payload)}; {self.get_my_instance_name(input_payload)}; {user_function_output}')
 
         if self.previous_checkpoint:
             # if a previous checkpoint already exists, skip checkpoint again.
@@ -227,13 +304,13 @@ class Unum(object):
         if self.debug:
             t1 = time.perf_counter_ns()
             ret = self.ds.checkpoint(self.get_session(input_payload),
-                    self.get_instance_name(input_payload),
+                    self.get_my_instance_name(input_payload),
                     user_function_output)
             t2 = time.perf_counter_ns()
             print(f'[DS checkpoint()]{t2-t1}')
         else:
             ret = self.ds.checkpoint(self.get_session(input_payload),
-                    self.get_instance_name(input_payload),
+                    self.get_my_instance_name(input_payload),
                     user_function_output)
 
         if ret == 1:
@@ -306,20 +383,79 @@ class Unum(object):
 
 
 
-    def _get_unum_index_str(self, fan_out_field):
-        '''Given the "Fan-out" field of the input payload, compute the
-        unumIndex.
+    def get_my_unum_index_list(self, input_payload):
+        '''Return my unum index as a list
 
-        Caller needs to make sure that the fan_out_field is not None.
+        This function caches the result into self.curr_unumIndex_list
+
+        See compute_unum_index_list() for how unum index list is computed.
+
+        @param input_payload dict Lambda input event
+
         '''
 
-        if "OuterLoop" not in fan_out_field:
-            return str(fan_out_field["Index"])
+        if self.curr_unumIndex_list == None:
+            self.curr_unumIndex_list = Unum.compute_unum_index_list(input_payload)
 
-        return self._get_unum_index_str(fan_out_field["OuterLoop"])+"."+str(fan_out_field["Index"])
+        return self.curr_unumIndex_list
 
 
-    def _get_unum_index_list(self, fan_out_field):
+
+    def get_my_unum_index_str(self, input_payload):
+        '''Return my unum index string
+
+        This function caches the result into self.curr_unumIndex_str
+
+        See compute_unum_index_str() for how unum index string is computed.
+
+        @param input_payload dict Lambda input event
+        '''
+
+        if self.curr_unumIndex_str == None:
+            self.curr_unumIndex_str = Unum.compute_unum_index_str(input_payload)
+
+        return self.curr_unumIndex_str
+
+
+
+    def get_my_instance_name(self, input_payload):
+        '''Given the input payload, get the instance name
+
+        The function name is set in the unum config, and the unumIndex is
+        computed from the input payload which is decided by the invoker of
+        this function. This function does NOT have ways to change its
+        unumIndex.
+
+        get_my_instance_name() caches the computed instance name into
+        self.curr_instance_name. self.curr_instance_name should be set back to
+        None after an invocation completes.
+        '''
+        
+        if self.curr_instance_name == None:
+            self.curr_instance_name = Unum.compute_instance_name(self.name, input_payload)
+
+        return self.curr_instance_name
+
+
+
+    @staticmethod
+    def compute_instance_name(function_name, input_payload):
+        '''Given a function's name and its input payload, compute its instance
+        name
+
+        An instance name = {function name}-unumIndex-{indexString}
+        '''
+
+        unum_index = Unum.compute_unum_index_str(input_payload)
+        if unum_index == None:
+            return f'{function_name}'
+        else:
+            return f'{function_name}-unumIndex-{unum_index}'
+
+
+
+    @staticmethod
+    def _compute_unum_index_list(fan_out_field):
         '''Given the "Fan-out" field of the input payload, compute the
         unumIndex list.
 
@@ -328,17 +464,15 @@ class Unum(object):
         if "OuterLoop" not in fan_out_field:
             return [int(fan_out_field["Index"])]
 
-        return [int(fan_out_field["Index"])] + self.get_unum_index_list(fan_out_field["OuterLoop"])
+        return [int(fan_out_field["Index"])] + Unum._compute_unum_index_list(fan_out_field["OuterLoop"])
 
 
 
-    def get_unum_index_list(self, input_payload):
+    @staticmethod
+    def compute_unum_index_list(input_payload):
         '''Extract the unum index as a list from the input payload
 
-        The list is cached at self.curr_unumIndex_list.
-
-        If the input payload does NOT have a Fan-out field,
-        self.curr_unumIndex_list is set to [].
+        If the input payload does NOT have a Fan-out field, return []
 
         The 0th index of the list is the inner-most/most-recent Fan-out Index. For example,
         if the input payload is 
@@ -363,110 +497,73 @@ class Unum(object):
         }
         ```
 
-        self.curr_unumIndex_list would be [1,2].
+        this function should return [1,2].
 
         '''
-
-        if self.curr_unumIndex_list != None:
-            # already computed and cached. return
-            return self.curr_unumIndex_list
-
         if "Fan-out" not in input_payload:
-            self.curr_unumIndex_list = []
+            return []
         else:
-            self.curr_unumIndex_list = self._get_unum_index_list(input_payload["Fan-out"])
-
-        return self.curr_unumIndex_list
+            return Unum._compute_unum_index_list(input_payload["Fan-out"])
 
 
 
-    def get_unum_index_str(self, input_payload):
-        '''Compute the unumIndex string
+    @staticmethod
+    def compute_unum_index_str(input_payload):
+        '''Given an input payload, return the unum index string
 
-        Each function instance (invocation) has a unique name that consists of
-        the function's name and a unumIndex string.
+        If there is no "Fan-out" field in the input payload, return None.
+        Otherwise, return a .-delimited string of integers. For instance,
 
-        The unumIndex string is computed solely from the input payload.
+        if the input payload is 
 
-        If the input payload does NOT have a "Fan-out" field, the unumIndex is
-        None. Otherwise, the unumIndex is a period-delimited string of fan-out
-        indexes starting with the outer-most loop.
+        ```
+        {
+            "Data": {
+                "Source": "http",
+                "Value": "foo"
+            },
+            "Session": "",
+            "Fan-out": {
+                "Type": "Map",
+                "Index": 1,
+                "Size": 3,
+                "OuterLoop": {
+                    "Type": "Map",
+                    "Index": 2,
+                    "Size": 5
+                }
+            }
+        }
+        ```
 
-        This function caches the result into self.curr_unumIndex_str
+        this function should return 1.2
 
-        @param input_payload dict Lambda input event
+        if the input pyaload is 
+
+        ```
+        {
+            "Data": {
+                "Source": "http",
+                "Value": "foo"
+            },
+            "Session": "",
+            "Fan-out": {
+                "Type": "Map",
+                "Index": 1,
+                "Size": 3
+            }
+        }
+        ```
+
+        this function should return 1
+
         '''
+        unum_index_list = Unum.compute_unum_index_list(input_payload)
 
-        if self.curr_unumIndex_str != None:
-            return self.curr_unumIndex_str
-
-        if "Fan-out" not in input_payload:
-            self.curr_unumIndex_str = None
-        else:
-            # self.curr_unumIndex_str = self._get_unum_index_str(input_payload["Fan-out"])
-            self.curr_unumIndex_str = functools.reduce(lambda l, elem: str(elem)+'.'+l,
-                        self.get_unum_index_list(input_payload),
-                        '')[:-1]
-
-        return self.curr_unumIndex_str
-
-
-
-    def get_instance_name(self, input_payload):
-        '''Given the input payload, get the instance name
-
-        The function name is set in the unum config, and the unumIndex is
-        computed from the input payload which is decided by the invoker of
-        this function. This function does NOT have ways to change its
-        unumIndex.
-
-        get_instance_name() caches the computed instance name into
-        self.curr_instance_name. self.curr_instance_name should be set back to
-        None after an invocation completes.
-        '''
-        
-        if self.curr_instance_name == None:
-            unum_index = self.get_unum_index_str(input_payload)
-            if unum_index == None:
-                self.curr_instance_name = f'{self.name}'
-            else:
-                self.curr_instance_name = f'{self.name}-unumIndex-{unum_index}'
-
-        return self.curr_instance_name
-
-
-
-    def get_checkpoint(self, input_payload):
-        '''Return the checkpoint of this instance
-
-        If the checkpoint does not exist, return None. Otherwise, return the
-        data of the checkpoint as a python data structure from json.loads().
-
-        unum calls this function before running the user function. If a
-        checkpoint exists, a prior instance completed at least up to
-        checkpointing and this instance is therefore a duplicate. unum sets
-        self.previous_checkpoint = True to indicate a duplicate.
-
-        @param input_payload dict the `event` from the lambda input
-        '''
-        session = self.get_session(input_payload)
-        instance_name = self.get_instance_name(input_payload)
-
-        if self.debug:
-            t1 = time.perf_counter_ns()
-            ds_ret = self.ds.get_checkpoint(session, instance_name)
-            t2 = time.perf_counter_ns()
-
-            print(f'[DS get_checkpoint]{t2-t1}')
-        else:
-            ds_ret = self.ds.get_checkpoint(session, instance_name)
-
-        if ds_ret == None:
-            self.previous_checkpoint = False
+        if unum_index_list == []:
             return None
-
-        self.previous_checkpoint = True
-        return json.loads(ds_ret)
+        else:
+            return functools.reduce(lambda l, elem: l+ '.'+str(elem), unum_index_list, '')[1:]
 
 
 
@@ -493,6 +590,7 @@ class Unum(object):
             ret = ret.replace("$2", str(input_payload["Fan-out"]["OuterLoop"]["OuterLoop"]["OuterLoop"]["Index"]))
 
         return ret
+
 
 
     def _generate_session(self, input_payload):
@@ -548,6 +646,8 @@ class Unum(object):
         self.curr_unumIndex_str = None
         self.curr_unumIndex_list = None
         self.previous_checkpoint = False
+        self.my_gc_tasks = None
+        self.my_outgoing_edges = None
 
 
 

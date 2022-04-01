@@ -47,23 +47,22 @@ class DynamoDBDriver(UnumIntermediaryDataStore):
 
 
     def read_input(self, session, values):
-        '''Given the workflow invocation session id and a list of pointers to
-        the intermediary data store, read all data and return them as an
-        ordered list.
+        '''Given the session id and a list of pointers to the intermediary
+        data store, read all data and return them as an ordered list.
 
         Data in the returned list should correspond to the pointers in the
         `values` parameter *in the same order*.
 
-        In practice, this function is only used by fan-in functions to read
-        its inputs which are the outputs of all fan-out functions.
+        In practice, this function is only used by aggregation functions
+        (fan-ins) to read its inputs.
 
-        Each element in the `values` list are *instance names*.
+        Elements in the `values` list are *instance names*.
 
         The pointers are used as is. It is the invoker's responsibility to
-        expand the pointers and make sure that they are valid. unum no longer
-        uses glob patterns in the the runtime payload (but the unum config
-        language still supports glob patterns) and the invoker should expand
-        all glob patterns to concrete data pointer names.
+        expand the pointers and make sure that they are valid.
+        Correspondingly, the IR of the fan-in branches, specifically the
+        `Values` field that lists all fan-in branches, are written from the
+        perspective of the branches (i.e., invokers).
 
         unum's fan-in semantics requires that the fan-in function be invoked
         only when ALL its inputs are available. Therefore, if one of the
