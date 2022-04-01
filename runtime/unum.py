@@ -261,11 +261,12 @@ class Unum(object):
 
         This function computes the session, and the fan-out field after Next
         Payload Modifiers before passing them to the continuation's run() API.
-
-
         '''
+        
         session = self.get_session(input_payload)
         next_payload_metadata = self.run_next_payload_modifiers(input_payload)
+
+        gc_info = {self.get_my_instance_name(input_payload): self.get_my_outgoing_edges(input_payload, user_function_output)}
 
         for c in self.cont_list:
             c.run(user_function_output,
@@ -273,6 +274,7 @@ class Unum(object):
                 next_payload_metadata,
                 input_payload,
                 self.get_my_unum_index_list(input_payload),
+                gc=gc_info,
                 my_name=self.name,
                 my_curr_instance_name=self.get_my_instance_name(input_payload))
 
@@ -978,6 +980,8 @@ class UnumContinuation(object):
                 else:
                     payload[f] = next_payload_metadata[f]
 
+        payload['GC'] = kwargs['gc']
+
         if self.debug:
             t1 = time.perf_counter_ns()
             ret = self.invoker.invoke(self.function_name, payload)
@@ -1029,6 +1033,8 @@ class UnumContinuation(object):
                         payload["Fan-out"]["OuterLoop"] = next_payload_metadata[f]
                     else:
                         payload[f] = next_payload_metadata[f]
+
+            payload['GC'] = kwargs['gc']
 
             self.invoker.invoke(self.function_name, payload)
 
