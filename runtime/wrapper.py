@@ -171,13 +171,13 @@ def egress(user_function_output, event):
         t3 = time.perf_counter_ns()
         session, next_payload_metadata = unum.run_continuation(event, user_function_output)
         t4 = time.perf_counter_ns()
-    elif ret == 1:
+    elif ret == -1:
         # checkpoint on and checkpoint failed due to concurrent instance beat
         # me to checkpoint.
 
         # Do not invoke continuations. 
         pass
-    elif ret == 2:
+    elif ret == -2:
         # checkpoint on and a checkpoint already exists before running the
         # user function, i.e., I'm a non-concurrent duplicate
 
@@ -203,7 +203,7 @@ def egress(user_function_output, event):
     session = unum.curr_session
 
     # Garbage collect my parents' checkpoints
-    unum.run_garbage_collect()
+    unum.run_gc()
 
     unum.cleanup()
 

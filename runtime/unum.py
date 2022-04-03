@@ -12,26 +12,6 @@ from enum import Enum
 
 from faas_invoke_backend import InvocationBackend
 
-# Connect to the intermediary data store
-# If failed to connect, the function will raise an exception.
-# if os.environ['UNUM_INTERMEDIARY_DATASTORE_TYPE'] == "s3":
-#     my_return_value_store = S3Driver(os.environ['UNUM_INTERMEDIARY_DATASTORE_NAME'])
-# elif os.environ['UNUM_INTERMEDIARY_DATASTORE_TYPE'] == "dynamodb":
-#     my_return_value_store = DynamoDBDriver(os.environ['UNUM_INTERMEDIARY_DATASTORE_NAME'])
-# elif os.environ['UNUM_INTERMEDIARY_DATASTORE_TYPE'] == 'redis':
-#     my_return_value_store = RedisDriver(os.environ['UNUM_INTERMEDIARY_DATASTORE_NAME'])
-# else:
-#     raise IOError(f'unknown return value store type')
-
-
-# with open('unum_config.json', 'r') as f:
-#     config = json.loads(f.read())
-
-# if "Next" in config:
-#     lambda_client = boto3.client("lambda")
-
-# my_function_name = config["Name"]
-
 
 
 class Unum(object):
@@ -262,7 +242,7 @@ class Unum(object):
         This function computes the session, and the fan-out field after Next
         Payload Modifiers before passing them to the continuation's run() API.
         '''
-        
+
         session = self.get_session(input_payload)
         next_payload_metadata = self.run_next_payload_modifiers(input_payload)
 
@@ -311,7 +291,7 @@ class Unum(object):
 
         if self.previous_checkpoint:
             # if a previous checkpoint already exists, skip checkpoint again.
-            return 2
+            return -2
 
         if self.debug:
             t1 = time.perf_counter_ns()
@@ -334,8 +314,30 @@ class Unum(object):
 
 
 
-    def run_garbage_collect(self):
+    def run_gc(self):
+        '''Delete my parents' checkpoints to garbage collect
+        '''
+
         print(f'session:{self.curr_session}, tasks: {self.my_gc_tasks}')
+
+        for k in self.my_gc_tasks:
+            if len(self.my_gc_tasks[k]) == 1:
+                if self.my_gc_tasks[k][0] == self.curr_instance_name:
+                    # I'm the only child of my parent. Delete my parent's checkpoint now
+                    print(f'[Unum] deleting {self.curr_session}/{k}')
+                    self.ds.delete_checkpoint(self.curr_session, k)
+                else:
+                    print(f'I am not the child of my parent?')
+
+            elif len(self.my_gc_tasks[k] >1):
+                # I have siblings.
+                my_idx = self.my_gc_tasks[k].index(self.curr_instance_name)
+
+                if self.ds.gc_sync_ready(session, k, my_idx, len(self.my_gc_tasks[k])):
+                    self.ds.delete_checkpoint(self.curr_session, k)
+            else:
+                print(f'self.my_gc_tasks[k] has no element: {self.my_gc_tasks[k]}')
+
 
 
 

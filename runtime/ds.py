@@ -213,7 +213,7 @@ class DynamoDBDriver(UnumIntermediaryDataStore):
         try:
             ret = self.table.get_item(
                 Key={
-                    'Name': self.get_checkpoint_name(session, instance_name)
+                    'Name': self.checkpoint_name(session, instance_name)
                 },
                 ConsistentRead=True,
                 ProjectionExpression='#Value',
@@ -231,7 +231,45 @@ class DynamoDBDriver(UnumIntermediaryDataStore):
 
 
 
-    def get_checkpoint_name(self, session, instance_name):
+    def _create_if_not_exist(self, key_name, key, value):
+        '''Create an item in the DynamoDB table with primary key `key` and
+        content `value` if the key does not already exist
+
+        @return
+        '''
+        item = {key_name: key, **value}
+        try:
+            if self.debug:
+                rsp = self.table.put_item(Item=item,
+                    ConditionExpression='attribute_not_exists(#N)',
+                    ExpressionAttributeNames={"#N": key_name},
+                    ReturnConsumedCapacity='TOTAL'
+                )
+
+                return int(rsp['ConsumedCapacity']['CapacityUnits'])
+
+            else:
+                self.table.put_item(Item=item,
+                    ConditionExpression='attribute_not_exists(#N)',
+                    ExpressionAttributeNames={"#N": key_name}
+
+                )
+                return 1
+
+        except ClientError as e:
+            if e.response['Error']['Code']=='ConditionalCheckFailedException':
+                return -1
+            elif e.response['Error']['Code']=='ValidationException':
+                raise e
+            else:
+                raise e
+        except Exception as e:
+            print(f"[WARN] Error Code is {e.response['Error']['Code']}")
+            raise e
+
+
+
+    def checkpoint_name(self, session, instance_name):
         '''Given the session ID and instance name, return the name of its
         DynamoDB checkpoint
         '''
@@ -239,7 +277,7 @@ class DynamoDBDriver(UnumIntermediaryDataStore):
 
 
 
-    def checkpoint(self, session, instance_name, user_function_output):
+    def checkpoint(self, session, instance_name, data):
         '''Writing the user function output as an item with a unique name
 
         This function creates a single item in the dynamoDB table. The item
@@ -259,7 +297,7 @@ class DynamoDBDriver(UnumIntermediaryDataStore):
         The "Name" field is the primary key.
 
         The "Value" field is of type string and is
-        json.dumps(user_function_output)
+        json.dumps(data)
 
         This function will only try to write if an item with the same "Name"
         does NOT already exists. If an item with the same "Name" already
@@ -268,51 +306,151 @@ class DynamoDBDriver(UnumIntermediaryDataStore):
 
         If the data to write failed DynamoDB's schema validation, return 2.
         '''
+
+        ckpt_data = {
+            "Session": session,
+            "Value": json.dumps(data)
+        }
+
+        return self._create_if_not_exist("Name", self.checkpoint_name(session, instance_name), ckpt_data)
+
+
+
+    def _delete(self, key_name, key):
+        '''Delete a key
+
+        Delete is idempotent. Deleting the same key multiple times does not
+        raise an exception. Similarly, if the key does not exist, _delete does
+        not raise an exception.
+
+        @return the consumed capacity
+        '''
         try:
+            if self.debug:
+                rsp = self.table.delete_item(
+                    Key={key_name: key},
+                    ReturnConsumedCapacity='TOTAL')
 
-            self.table.put_item(Item={
-                    "Session": session,
-                    "Name": self.get_checkpoint_name(session, instance_name),
-                    "Value": json.dumps(user_function_output)
-                },
-                ConditionExpression='attribute_not_exists(#N)',
-                ExpressionAttributeNames={"#N": "Name"}
-
-            )
-
-            # if self.debug:
-            #     ret = self.table.put_item(Item={
-            #             "Session": session,
-            #             "Name": self.get_checkpoint_name(session, instance_name),
-            #             "Value": json.dumps(user_function_output)
-            #         },
-            #         ConditionExpression='attribute_not_exists(#N)',
-            #         ExpressionAttributeNames={"#N": "Name"},
-            #         ReturnConsumedCapacity="TOTAL"
-            #     )
-            #     print(f"[ds.dynamodb.checkpoint] put_item consumed capacity: {ret['ConsumedCapacity']['CapacityUnits']}")
-            # else:
-            #     self.table.put_item(Item={
-            #             "Session": session,
-            #             "Name": self.get_checkpoint_name(session, instance_name),
-            #             "Value": json.dumps(user_function_output)
-            #         },
-            #         ConditionExpression='attribute_not_exists(#N)',
-            #         ExpressionAttributeNames={"#N": "Name"}
-
-            #     )
-
-            return 0
-        except ClientError as e:  
-            if e.response['Error']['Code']=='ConditionalCheckFailedException':  
-                return 1
-            elif e.response['Error']['Code']=='ValidationException':
-                raise e
+                return int(rsp['ConsumedCapacity']['CapacityUnits'])
             else:
-                raise e
-        except Exception as e:
-            print(f"[WARN] Error Code is {e.response['Error']['Code']}")
+                rsp = self.table.delete_item(Key={key_name: key})
+                return 1
+
+        except ClientError as e:
             raise e
+
+
+
+    def delete_checkpont(self, session, instance_name):
+        return self._delete("Name", self.checkpoint_name(session, instance_name))
+
+
+
+    def gc_sync_point_name(self, session, parent_function_instance_name):
+
+        return f'{session}/{parent_function_instance_name}-gc'
+
+
+
+    def fanin_sync_point_name(self, session, aggregation_function_instance_name):
+
+        return f'{session}/{aggregation_function_instance_name}-fanin'
+
+
+
+    def gc_sync_ready(self, session, parent_function_instance_name, index, num_branches):
+        '''Mark my gc as ready and check if gc is ready to run
+
+        In the case of a parent node invoking multiple downstream child nodes,
+        all child nodes need to have created their checkpoints before the
+        parent node's checkpoint can be garbage collected. Unum have all child
+        nodes synchronize via the intermediate datastore so that the
+        last-to-finish child node deletes the parent's checkpoint.
+
+        The synchronization item is named by the gc_sync_point_name() function
+        based on the session ID and the parent function's instance name.
+
+        @return True is I'm the last-to-finish child node. False if I'm not.
+        '''
+
+        return self._sync_ready(self.gc_sync_point_name(session, parent_function_instance_name), index, num_branches)
+
+
+
+    def fanin_sync_ready(self, session, aggregation_function_instance_name, index, num_branches):
+        '''Mark my branch as ready and check if fan-in is ready to run
+
+        In the case of fan-in, all upstream branches need to have created
+        their checkpoints before the aggregation function is invoked. Unum
+        have all branches synchronize via the intermediate datastore so that only
+        the last-to-finish branch invokes the aggregation function.
+
+        The synchronization item is named by the fanin_sync_point_name() function
+        based on the session ID and the aggregation function's instance name.
+
+        @return True is I'm the last-to-finish branch. False if I'm not.
+        '''
+
+        return self._sync_ready(self.fanin_sync_point_name(session, aggregation_function_instance_name), index, num_branches)
+
+
+
+    def _sync_ready(self, sync_point_name, index, num_branches):
+        '''Mark the caller ready and return the return map
+
+        @param sync_point_name DynamoDB primary key of the synchronization item
+        @param index caller's index in the synchronization item
+        @param num_branches the number of nodes that need to synchronize
+        '''
+        return self._sync_ready_bitmap(sync_point_name, index, num_branches)
+
+
+
+    def _sync_ready_bitmap(self, sync_point_name, index, num_branches):
+        self._create_bitmap(sync_point_name, num_branches)
+        ready_map = self._update_bitmap_result(sync_point_name, index)
+
+        return self._bitmap_ready(ready_map)
+
+
+
+    def _create_bitmap(self, bitmap_name, bitmap_size):
+
+        value = {"ReadyMap": [False for i in range(bitmap_size)]}
+
+        return self._create_if_not_exist("Name", bitmap_name, value)
+
+
+
+    def _update_bitmap_result(self, bitmap_name, index):
+        try:
+            ret = self.table.update_item(
+                Key={"Name": bitmap_name},
+                ReturnValues='ALL_NEW',
+                UpdateExpression="set #L[" + str(index) + "] = :nd",
+                ConditionExpression='attribute_exists(#N)',
+                ExpressionAttributeValues={':nd': True},
+                ExpressionAttributeNames={"#N": "Name", "#L": "ReadyMap"})
+        except Exception as e:
+            raise e
+
+        return ret['Attributes']['ReadyMap']
+
+
+
+    def _bitmap_ready(self, bitmap):
+        '''Check if the bitmap is all True
+        '''
+
+        for b in bitmap:
+            if b == False:
+                return False
+        return True
+
+
+
+    def _sync_ready_counter(self, sync_point_name, index, num_branches):
+        pass
 
 
 
@@ -360,44 +498,6 @@ class DynamoDBDriver(UnumIntermediaryDataStore):
         return ret["Attributes"]["Count"]
 
 
-    def _update_fan_in_counter_array(self, session, counter_name, my_index, array_size):
-        '''Given the session and counter name, create the counter with initial
-        0 if it does not already exist. Or increments the counter by 1
-        atomically. Return the counter value after update.
-        '''
-        bitmap = [False for i in range(array_size)]
-        try:
-            ret = self.table.put_item(Item={
-                    "Name": f'{session}/{counter_name}',
-                    "ReadyMap": bitmap
-                },
-                ConditionExpression='attribute_not_exists(#N)',
-                ExpressionAttributeNames={"#N": "Name"}
-
-            )
-        except ClientError as e:  
-            if e.response['Error']['Code']=='ConditionalCheckFailedException':  
-                pass
-            else:
-                raise e
-        except Exception as e:
-            raise e
-
-        try:
-            ret = self.table.update_item(
-                Key={"Name": f'{session}/{counter_name}'},
-                ReturnValues='UPDATED_NEW',
-                UpdateExpression='SET ReadyMap = #C + :incr',
-                ConditionExpression='attribute_exists(#N)',
-                # ExpressionAttributeNames={
-                #     'string': 'string'
-                # },
-                ExpressionAttributeValues={':incr': 1},
-                ExpressionAttributeNames={"#N": "Name"})
-        except Exception as e:
-            raise e
-
-        return ret["Attributes"]["ReadyMap"]
 
     def check_fan_in_complete(self, session, values, target_count):
         '''Increment the counter and check if fan-in is complete
@@ -414,14 +514,6 @@ class DynamoDBDriver(UnumIntermediaryDataStore):
 
         return ret == target_count
 
-        # ret = self._update_fan_in_counter_array(session, counter_name, fan_out_size)
-
-        # count = 0
-        # for b in ret:
-        #     if b:
-        #         count = count+1
-
-        # return count == target_count
 
 
 class S3Driver(UnumIntermediaryDataStore):
