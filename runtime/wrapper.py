@@ -100,9 +100,13 @@ def ingress(event):
         # print(f'Reading user function input from {unum.ds.my_type}')
         # print(f'Target files are: {event["Data"]["Value"]}')
         ckpt_vals = unum.ds.read_input(event["Session"], event["Data"]["Value"])
-        unum.my_gc_tasks = [ckpt['GC'] for ckpt in ckpt_vals]
+        gc_tasks = [ckpt["GC"] for ckpt in ckpt_vals]
+        unum.my_gc_tasks = {k:v for t in gc_tasks for k,v in t.items()}
 
-        return [ckpt["User"] for ckpt in ckpt_vals]
+        input_data = [ckpt["User"] for ckpt in ckpt_vals]
+        # print(f'Input Data:{input_data}')
+
+        return input_data
 
 
 

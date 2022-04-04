@@ -334,21 +334,23 @@ class Unum(object):
             print(f'No gc tasks')
             return
 
+        # print(f'My gc tasks:{self.my_gc_tasks}')
+
         for k in self.my_gc_tasks:
             if len(self.my_gc_tasks[k]) == 1:
                 if self.my_gc_tasks[k][0] == self.curr_instance_name:
                     # I'm the only child of my parent. Delete my parent's checkpoint now
-                    print(f'[Unum] deleting {self.ds.checkpoint_name(self.curr_session, k)}')
+                    # print(f'[Unum] deleting {self.ds.checkpoint_name(self.curr_session, k)}')
                     self.ds.delete_checkpoint(self.curr_session, k)
                 else:
                     print(f'I am not the child of my parent?')
 
-            elif len(self.my_gc_tasks[k] >1):
+            elif len(self.my_gc_tasks[k]) > 1:
                 # I have siblings.
                 my_idx = self.my_gc_tasks[k].index(self.curr_instance_name)
 
-                if self.ds.gc_sync_ready(session, k, my_idx, len(self.my_gc_tasks[k])):
-                    print(f'[Unum] deleting {self.ds.checkpoint_name(self.curr_session, k)}')
+                if self.ds.gc_sync_ready(self.curr_session, k, my_idx, len(self.my_gc_tasks[k])):
+                    # print(f'[Unum] deleting {self.ds.checkpoint_name(self.curr_session, k)}')
                     self.ds.delete_checkpoint(self.curr_session, k)
             else:
                 print(f'self.my_gc_tasks[k] has no element: {self.my_gc_tasks[k]}')
