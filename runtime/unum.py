@@ -320,6 +320,13 @@ class Unum(object):
 
         print(f'session:{self.curr_session}, tasks: {self.my_gc_tasks}')
 
+        if self.my_gc_tasks == None:
+            return
+
+        if len(self.my_gc_tasks) == 0:
+            print(f'No gc tasks')
+            return
+
         for k in self.my_gc_tasks:
             if len(self.my_gc_tasks[k]) == 1:
                 if self.my_gc_tasks[k][0] == self.curr_instance_name:

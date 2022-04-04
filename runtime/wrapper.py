@@ -92,7 +92,9 @@ def ingress(event):
     '''
 
     if event["Data"]["Source"] =="http":
-        unum.my_gc_tasks = event['GC']
+        if unum.entry_function == False:
+            unum.my_gc_tasks = event['GC']
+
         return event["Data"]["Value"]
     else:
         # print(f'Reading user function input from {unum.ds.my_type}')
