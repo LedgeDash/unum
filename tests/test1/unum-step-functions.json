@@ -1,0 +1,15 @@
+{
+  "StartAt": "A",
+  "States": {
+    "A": {
+      "Type": "Task",
+      "Resource": "A",
+      "Next": "B"
+    },
+    "B": {
+      "Type": "Task",
+      "Resource": "B",
+      "End": true
+    }
+  }
+}

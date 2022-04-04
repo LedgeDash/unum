@@ -1,0 +1,29 @@
+{
+  "StartAt": "A",
+  "States": {
+    "A": {
+      "Type": "Task",
+      "Resource": "A",
+      "Next": "Map"
+    },
+    "Map": {
+      "Type": "Map",
+      "Next": "C",
+      "Iterator": {
+      	"StartAt": "B",
+      	"States": {
+      	  "B": {
+      	    "Type": "Task",
+            "Resource": "B",
+            "End": true
+      	  }
+      	}
+      }
+    },
+    "C": {
+      "Type": "Task",
+      "Resource": "C",
+      "End": true
+    }
+  }
+}
