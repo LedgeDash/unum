@@ -235,7 +235,7 @@ class DynamoDBDriver(UnumIntermediaryDataStore):
         '''Create an item in the DynamoDB table with primary key `key` and
         content `value` if the key does not already exist
 
-        @return
+        @return a positive integer if success. -1 if the key already exists.
         '''
         item = {key_name: key, **value}
         try:
@@ -341,7 +341,7 @@ class DynamoDBDriver(UnumIntermediaryDataStore):
 
 
 
-    def delete_checkpont(self, session, instance_name):
+    def delete_checkpoint(self, session, instance_name):
         return self._delete("Name", self.checkpoint_name(session, instance_name))
 
 

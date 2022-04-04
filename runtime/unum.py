@@ -191,6 +191,12 @@ class Unum(object):
         return json.loads(ds_ret)
 
 
+    @staticmethod
+    def arn_to_function_name(arn):
+        parts = arn.split(':')[-1].split('-')
+        return parts[-2].strip("Function")
+
+
 
     def get_my_outgoing_edges(self, input_payload, user_function_output):
         '''Return the instance names of my downstream functions
@@ -225,9 +231,9 @@ class Unum(object):
 
                 if isinstance(next_payload, list):
                     for e in next_payload:
-                        outgoing_edges.append(Unum.compute_instance_name(c.function_name, e))
+                        outgoing_edges.append(Unum.compute_instance_name(Unum.arn_to_function_name(c.function_name), e))
                 else:
-                    outgoing_edges.append(Unum.compute_instance_name(c.function_name, next_payload))
+                    outgoing_edges.append(Unum.compute_instance_name(Unum.arn_to_function_name(c.function_name), next_payload))
 
             self.my_outgoing_edges = outgoing_edges
 
@@ -305,20 +311,21 @@ class Unum(object):
                     self.get_my_instance_name(input_payload),
                     user_function_output)
 
-        if ret == 1:
+        if ret == -1:
             # print(f'[WARN] Checkpoint already exists. Did NOT overwrite data.')
-            return 1
+            return -1
+        elif ret >=1:
+            # ds successfully writes checkpoint
+            return 0
 
-        # ds successfully writes checkpoint
-        return 0
+        # unknow error
+        return -3
 
 
 
     def run_gc(self):
         '''Delete my parents' checkpoints to garbage collect
         '''
-
-        print(f'session:{self.curr_session}, tasks: {self.my_gc_tasks}')
 
         if self.my_gc_tasks == None:
             return
@@ -331,7 +338,7 @@ class Unum(object):
             if len(self.my_gc_tasks[k]) == 1:
                 if self.my_gc_tasks[k][0] == self.curr_instance_name:
                     # I'm the only child of my parent. Delete my parent's checkpoint now
-                    print(f'[Unum] deleting {self.curr_session}/{k}')
+                    print(f'[Unum] deleting {self.ds.checkpoint_name(self.curr_session, k)}')
                     self.ds.delete_checkpoint(self.curr_session, k)
                 else:
                     print(f'I am not the child of my parent?')
@@ -341,6 +348,7 @@ class Unum(object):
                 my_idx = self.my_gc_tasks[k].index(self.curr_instance_name)
 
                 if self.ds.gc_sync_ready(session, k, my_idx, len(self.my_gc_tasks[k])):
+                    print(f'[Unum] deleting {self.ds.checkpoint_name(self.curr_session, k)}')
                     self.ds.delete_checkpoint(self.curr_session, k)
             else:
                 print(f'self.my_gc_tasks[k] has no element: {self.my_gc_tasks[k]}')
