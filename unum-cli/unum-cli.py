@@ -34,6 +34,7 @@ def generate_sam_template(unum_template):
                     "Variables":{
                         "UNUM_INTERMEDIARY_DATASTORE_TYPE": unum_template["Globals"]["UnumIntermediaryDataStoreType"],
                         "UNUM_INTERMEDIARY_DATASTORE_NAME": unum_template["Globals"]["UnumIntermediaryDataStoreName"],
+                        "FAAS_PLATFORM": unum_template["Globals"]["FaaSPlatform"],
                         "CHECKPOINT":unum_template["Globals"]["Checkpoint"]
                     }
                 }
@@ -42,9 +43,13 @@ def generate_sam_template(unum_template):
     # Set all Lambda timeouts to 900 sec
     sam_template["Globals"]["Function"]["Timeout"] = 900
 
+    # Copy other global settings from unum-template to sam template
+    if "MemorySize" in unum_template["Globals"]:
+        sam_template["Globals"]["Function"]["MemorySize"] = unum_template["Globals"]["MemorySize"]
+
     # For each unum function, create a AWS::Serverless::Function resource in
     # the SAM template under the "Resources" field.
-    # All unum functions "Handler" is unum.lambda_handler
+    # All unum functions "Handler" is wrapper.lambda_handler
     # Copy over "CodeUri", "Runtime"
     # Add 
     #   + "AmazonDynamoDBFullAccess"
@@ -64,7 +69,7 @@ def generate_sam_template(unum_template):
         sam_template["Resources"][f'{f}Function'] = {
                 "Type":"AWS::Serverless::Function",
                 "Properties": {
-                    "Handler":"unum.lambda_handler",
+                    "Handler":"wrapper.lambda_handler",
                     "Runtime": unum_template["Functions"][f]["Properties"]["Runtime"],
                     "CodeUri": unum_template["Functions"][f]["Properties"]["CodeUri"],
                     "Policies": list(set(unum_function_needed_policies) | set(unum_function_policies))
@@ -131,6 +136,7 @@ def sam_build(platform_template, args):
         print(f'\033[33m[*] Deploy: unum-cli deploy\033[0m\n')
     except Exception as e:
         print(f'\033[31m \n Build Failed!\n\n AWS SAM failed to build due to:')
+        print(f'{ret.stderr}')
         raise e
     
 
@@ -320,6 +326,7 @@ def update_unum_config_continuation_to_arn(platform_template, function_to_arn_ma
             try:
                 c = open(f'{function_artifact_dir}/unum_config.json', 'r+')
                 config = json.loads(c.read())
+                print(f'Current config: {config}')
 
                 if "Next" in config:
                     if isinstance(config["Next"],dict):
