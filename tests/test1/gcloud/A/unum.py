@@ -73,6 +73,7 @@ class Unum(object):
         except KeyError:
             self.next_payload_modifiers = []
 
+        print(f'Creating data store type: {datastore_type}, and name: {datastore_name}')
         self.ds = UnumIntermediaryDataStore.create(datastore_type, datastore_name, self.debug)
 
         self.cont_list = []

@@ -6,7 +6,7 @@ if os.environ['FAAS_PLATFORM'] == 'aws':
     import boto3
     from botocore.exceptions import ClientError
 elif os.environ['FAAS_PLATFORM'] =='gcloud':
-    pass
+    from google.cloud import firestore
 
 class UnumIntermediaryDataStore(object):
     
@@ -44,6 +44,45 @@ class UnumIntermediaryDataStore(object):
 class FirestoreDriver(UnumIntermediaryDataStore):
     def __init__(self, ds_name, debug):
         super(FirestoreDriver, self).__init__("firestore", ds_name, debug)
+        self.db = firestore.Client()
+
+
+    def checkpoint_name(self, session, instance_name):
+        '''Given the session ID and instance name, return the name of its
+        DynamoDB checkpoint
+        '''
+        return f'{session}/{instance_name}-output'
+
+
+
+    def get_checkpoint(self, session, instance_name):
+        pass
+
+
+
+    def test(self):
+
+        print(f'Firestore test')
+        doc_ref = self.db.collection(u'users').document(u'alovelace')
+        doc_ref.set({
+            u'first': u'Ada',
+            u'last': u'Lovelace',
+            u'born': 1815
+        })
+
+        doc_ref = self.db.collection(u'users').document(u'aturing')
+        doc_ref.set({
+            u'first': u'Alan',
+            u'middle': u'Mathison',
+            u'last': u'Turing',
+            u'born': 1912
+        })
+
+        users_ref = self.db.collection(u'users')
+        docs = users_ref.stream()
+
+        for doc in docs:
+            print(f'{doc.id} => {doc.to_dict()}')
 
 
 

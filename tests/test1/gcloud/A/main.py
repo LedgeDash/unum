@@ -287,9 +287,12 @@ def lambda_handler(event, context):
                 input_data = base64.b64decode(event['data']).decode('utf-8')
                 input_data = json.loads(input_data)
 
-            return
         elif os.environ['FAAS_PLATFORM'] == 'aws':
             input_data = event
+
+        print(f'Firestore test:')
+        unum.ds.test()
+        return
 
         ckpt_ret = unum.get_checkpoint(input_data)
         if ckpt_ret == None:
