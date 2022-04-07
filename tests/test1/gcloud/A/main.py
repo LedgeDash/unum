@@ -5,6 +5,9 @@ import time
 from unum import Unum
 from app import lambda_handler as user_lambda
 
+if os.environ['FAAS_PLATFORM'] == 'gcloud':
+    import base64
+
 '''Create the unum runtime context from this function's unum configuration and
 the workflow's intermediary data store information.
 
@@ -276,13 +279,25 @@ def lambda_handler(event, context):
 
     else:
 
-        ckpt_ret = unum.get_checkpoint(event)
+        if os.environ['FAAS_PLATFORM'] == 'gcloud':
+            # print("""This Function was triggered by messageId {} published at {} to {}
+            # """.format(context.event_id, context.timestamp, context.resource["name"]))
+
+            if 'data' in event:
+                input_data = base64.b64decode(event['data']).decode('utf-8')
+                input_data = json.loads(input_data)
+
+            return
+        elif os.environ['FAAS_PLATFORM'] == 'aws':
+            input_data = event
+
+        ckpt_ret = unum.get_checkpoint(input_data)
         if ckpt_ret == None:
-            user_function_input = ingress(event)
+            user_function_input = ingress(input_data)
             user_function_output = user_lambda(user_function_input, context)
         else:
             user_function_output = ckpt_ret
             
-        session, next_payload_metadata = egress(user_function_output, event)
+        session, next_payload_metadata = egress(user_function_output, input_data)
 
         return user_function_output, session, next_payload_metadata
