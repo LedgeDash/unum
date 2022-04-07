@@ -1,0 +1,10 @@
+{
+    "Name": "A",
+    "Next": {
+        "Name": "B",
+        "InputType": "Scalar"
+    },
+    "Checkpoint": true,
+    "Debug": false,
+    "Start": true
+}
