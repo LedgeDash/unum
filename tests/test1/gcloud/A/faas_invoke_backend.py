@@ -1,10 +1,12 @@
 import json
 import os
 
+from cfn_tools import load_yaml, dump_yaml
+
 if os.environ['FAAS_PLATFORM'] == 'aws':
     import boto3
 elif os.environ['FAAS_PLATFORM'] =='gcloud':
-    pass
+    from google.cloud import pubsub_v1
 
 
 
@@ -31,13 +33,30 @@ class InvocationBackend(object):
 @InvocationBackend.add_backend('gcloud')
 class GCloudFunctionBackend(InvocationBackend):
     def __init__(self):
-        self.pubsub = None
+        self.pubsub = pubsub_v1.PublisherClient()
+
+        try:
+            with open('function_name_to_resource.yaml', 'r') as f:
+                self.mapping = load_yaml(f.read())
+
+        except Exception as e:
+            raise e
 
     def invoke(self, function, data):
-        return self._pubsub_invoke(function, data)
+        '''Given a Unum function name, invoke it with data
+        '''
+        return self._pubsub_invoke(self.mapping[function], data)
 
-    def _pubsub_invoke(self, function, data):
-        pass
+    def _pubsub_invoke(self, topic, data):
+        '''Given a gcloud pubsub topic, publish a message to it with content
+        of data
+        '''
+        print(f'Invoking function: {topic} with data: {data}')
+        try:
+            self.pubsub.publish(topic, json.dumps(data).encode('utf-8'))
+        except Exception as e:
+            raise e
+        
 
 
 

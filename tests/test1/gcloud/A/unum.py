@@ -188,7 +188,7 @@ class Unum(object):
             return None
 
         self.previous_checkpoint = True
-        return json.loads(ds_ret)
+        return ds_ret
 
 
     @staticmethod
@@ -231,9 +231,9 @@ class Unum(object):
 
                 if isinstance(next_payload, list):
                     for e in next_payload:
-                        outgoing_edges.append(Unum.compute_instance_name(Unum.arn_to_function_name(c.function_name), e))
+                        outgoing_edges.append(Unum.compute_instance_name(c.function_name, e))
                 else:
-                    outgoing_edges.append(Unum.compute_instance_name(Unum.arn_to_function_name(c.function_name), next_payload))
+                    outgoing_edges.append(Unum.compute_instance_name(c.function_name, next_payload))
 
             self.my_outgoing_edges = outgoing_edges
 

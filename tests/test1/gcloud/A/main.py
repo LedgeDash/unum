@@ -1,6 +1,7 @@
 import json
 import os
 import time
+import sys
 
 from unum import Unum
 from app import lambda_handler as user_lambda
@@ -185,6 +186,7 @@ def egress(user_function_output, event):
         # me to checkpoint.
 
         # Do not invoke continuations. 
+        print(f'Checkpoint already exists. Session: {unum.curr_session}')
         pass
     elif ret == -2:
         # checkpoint on and a checkpoint already exists before running the
@@ -253,6 +255,8 @@ def lambda_handler(event, context):
 
     '''
 
+    unum.cleanup()
+
     if unum.debug:
 
         t1 = time.perf_counter_ns()
@@ -287,12 +291,12 @@ def lambda_handler(event, context):
                 input_data = base64.b64decode(event['data']).decode('utf-8')
                 input_data = json.loads(input_data)
 
+                print(f'Input data: {input_data}')
+
+            # unum.ds.test()
+
         elif os.environ['FAAS_PLATFORM'] == 'aws':
             input_data = event
-
-        print(f'Firestore test:')
-        unum.ds.test()
-        return
 
         ckpt_ret = unum.get_checkpoint(input_data)
         if ckpt_ret == None:
@@ -302,5 +306,8 @@ def lambda_handler(event, context):
             user_function_output = ckpt_ret
             
         session, next_payload_metadata = egress(user_function_output, input_data)
+
+        # if os.environ['FAAS_PLATFORM'] == 'gcloud':
+        #     print(f'Function completed with session: {session}')
 
         return user_function_output, session, next_payload_metadata

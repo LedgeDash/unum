@@ -7,6 +7,7 @@ if os.environ['FAAS_PLATFORM'] == 'aws':
     from botocore.exceptions import ClientError
 elif os.environ['FAAS_PLATFORM'] =='gcloud':
     from google.cloud import firestore
+    from google.cloud import exceptions as gcloudexceptions
 
 class UnumIntermediaryDataStore(object):
     
@@ -42,21 +43,90 @@ class UnumIntermediaryDataStore(object):
 
 @UnumIntermediaryDataStore.add_datastore('firestore')
 class FirestoreDriver(UnumIntermediaryDataStore):
+    '''
+    In the gcloud Firestore implementation, each session is saved in its own
+    collection. The collection name is the session id. Checkpoints are
+    documents in the collection with the function's instance name as its
+    document name.
+    '''
     def __init__(self, ds_name, debug):
         super(FirestoreDriver, self).__init__("firestore", ds_name, debug)
         self.db = firestore.Client()
 
 
-    def checkpoint_name(self, session, instance_name):
-        '''Given the session ID and instance name, return the name of its
-        DynamoDB checkpoint
-        '''
-        return f'{session}/{instance_name}-output'
+
+    def _read(self, collection, document):
+        doc_ref = self.db.collection(u'{}'.format(collection)).document(u'{}'.format(document))
+
+        doc = doc_ref.get()
+        if doc.exists:
+            return doc.to_dict()
+        else:
+            return None
 
 
 
     def get_checkpoint(self, session, instance_name):
-        pass
+        
+        return self._read(session, instance_name)
+
+
+
+    def _create_if_not_exist(self, collection, document, value):
+        '''
+
+        According to
+        https://googleapis.dev/python/firestore/latest/document.html#google.cloud.firestore_v1.document.DocumentReference.create,
+        create() will fail with google.cloud.exceptions.Conflict if the
+        document already exists.
+
+        It's not fully clear whether create if strongly consistent in that if
+        I have 2 concurrent threads calling create, does it guarantee that one
+        of the create() calls will fail with google.cloud.exceptions.Conflict?
+        '''
+
+        doc_ref = self.db.collection(u'{}'.format(collection)).document(u'{}'.format(document))
+
+        try:
+            doc_ref.create(value)
+
+            return 1
+        except gcloudexceptions.Conflict as e:
+            if self.debug:
+                print(f'Checkpointing encountered Conflict exception: {e}')
+            return -1
+        except Exception as e:
+            print(f'Checkpointing encountered unexpected error: {e}')
+            return -2
+
+
+    def checkpoint(self, session, instance_name, data):
+
+        ckpt_data = {
+            u"Session": u'{}'.format(session),
+            u"Value": json.dumps(data)
+        }
+
+        return self._create_if_not_exist(session, instance_name, ckpt_data)
+
+
+
+    def _delete(self, collection, document):
+        '''Delete a document in a collection
+        '''
+        doc_ref = self.db.collection(u'{}'.format(collection)).document(u'{}'.format(document))
+
+        try:
+            doc_ref.delete()
+            return 1
+
+        except ClientError as e:
+            raise e
+
+
+
+    def delete_checkpoint(self, session, instance_name):
+        return self._delete(session, instance_name)
 
 
 
@@ -83,6 +153,12 @@ class FirestoreDriver(UnumIntermediaryDataStore):
 
         for doc in docs:
             print(f'{doc.id} => {doc.to_dict()}')
+
+        session = f'{uuid.uuid4()}'
+
+        self.checkpoint(session, 'test-function', {"output":"foo"})
+        self.checkpoint(session, 'test-function', {"output":"foo"})
+
 
 
 
