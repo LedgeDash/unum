@@ -1,0 +1,41 @@
+{
+  "StartAt": "A",
+  "States": {
+    "A": {
+      "Type": "Task",
+      "Resource": "A",
+      "Next": "Fan-out"
+    },
+    "Fan-out": {
+      "Type": "Parallel",
+      "Next": "D",
+      "Branches":[
+        {
+         "StartAt":"B",
+         "States": {
+           "B": {
+             "Type": "Task",
+             "Resource": "B",
+             "End": true
+           }
+         }
+        },
+        {
+         "StartAt":"C",
+         "States": {
+           "C": {
+             "Type": "Task",
+             "Resource": "C",
+             "End": true
+           }
+         }
+        }
+      ]
+    },
+    "D": {
+      "Type": "Task",
+      "Resource": "D",
+      "End": true
+    }
+  }
+}

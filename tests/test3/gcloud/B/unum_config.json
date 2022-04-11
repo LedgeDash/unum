@@ -1,0 +1,16 @@
+{
+    "Name": "B",
+    "Next": {
+        "Name": "D",
+        "InputType": {
+            "Fan-in": {
+                "Values": [
+                    "B-unumIndex-0",
+                    "C-unumIndex-1"
+                ]
+            }
+        }
+    },
+    "Checkpoint": true,
+    "Debug": false
+}
