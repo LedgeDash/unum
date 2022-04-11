@@ -292,7 +292,7 @@ def lambda_handler(event, context):
                 input_data = base64.b64decode(event['data']).decode('utf-8')
                 input_data = json.loads(input_data)
 
-                # print(f'[gcloud debug] Input data: {input_data}')
+                print(f'[gcloud debug] Input data: {input_data}')
 
             # unum.ds.test()
 

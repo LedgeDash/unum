@@ -1,4 +1,3 @@
-#
 gcloud functions deploy unum-test1-A \
 --runtime python38 \
 --trigger-topic unum-test1-A \
