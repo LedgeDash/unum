@@ -73,7 +73,7 @@ class Unum(object):
         except KeyError:
             self.next_payload_modifiers = []
 
-        print(f'Creating data store type: {datastore_type}, and name: {datastore_name}')
+        # print(f'Creating data store type: {datastore_type}, and name: {datastore_name}')
         self.ds = UnumIntermediaryDataStore.create(datastore_type, datastore_name, self.debug)
 
         self.cont_list = []
@@ -176,14 +176,7 @@ class Unum(object):
         session = self.get_session(input_payload)
         instance_name = self.get_my_instance_name(input_payload)
 
-        if self.debug:
-            t1 = time.perf_counter_ns()
-            ds_ret = self.ds.get_checkpoint(session, instance_name)
-            t2 = time.perf_counter_ns()
-
-            print(f'[DS get_checkpoint]{t2-t1}')
-        else:
-            ds_ret = self.ds.get_checkpoint(session, instance_name)
+        ds_ret = self.ds.get_checkpoint(session, instance_name)
 
         if ds_ret == None:
             self.previous_checkpoint = False
@@ -301,22 +294,16 @@ class Unum(object):
             # if a previous checkpoint already exists, skip checkpoint again.
             return -2
 
-        if self.debug:
-            t1 = time.perf_counter_ns()
-            ret = self.ds.checkpoint(self.get_session(input_payload),
-                    self.get_my_instance_name(input_payload),
-                    user_function_output)
-            t2 = time.perf_counter_ns()
-            print(f'[DS checkpoint()]{t2-t1}')
-        else:
-            ret = self.ds.checkpoint(self.get_session(input_payload),
-                    self.get_my_instance_name(input_payload),
-                    user_function_output)
+        ret = self.ds.checkpoint(self.get_session(input_payload),
+                self.get_my_instance_name(input_payload), user_function_output)
 
         if ret == -1:
-            # print(f'[WARN] Checkpoint already exists. Did NOT overwrite data.')
+            # checkpoint already exists
+            if self.debug:
+                print(f'[DEBUG] checkpoint already exists when trying to create. Session: {self.get_session(input_payload)}, instance name: {self.get_my_instance_name(input_payload)}')
+
             return -1
-        elif ret >=1:
+        elif ret >= 1:
             # ds successfully writes checkpoint
             return 0
 
@@ -998,7 +985,10 @@ class UnumContinuation(object):
             t1 = time.perf_counter_ns()
             ret = self.invoker.invoke(self.function_name, payload)
             t2 = time.perf_counter_ns()
+
+            print(f'Invoking {self.function_name} with payload {payload}')
             print(f'[INVOKER invoke()]{t2-t1}')
+
             return ret
         else:
             return self.invoker.invoke(self.function_name, payload)
@@ -1047,6 +1037,9 @@ class UnumContinuation(object):
                         payload[f] = next_payload_metadata[f]
 
             payload['GC'] = kwargs['gc']
+
+            if self.debug:
+                print(f'Invoking {self.function_name} with payload {payload}')
 
             self.invoker.invoke(self.function_name, payload)
 
@@ -1103,9 +1096,12 @@ class UnumContinuation(object):
             payload['Data'] = {'Source': self.datastore.my_type, 'Value': branch_instance_names}
             payload['Session'] = session
 
+            if self.debug:
+                print(f'[DEBUG] Invoking {self.function_name} with {payload}')
+
             self.invoker.invoke(self.function_name, payload)
         else:
-            # fan-in not ready. just return now
+            # fan-in not ready. just return
             pass
 
 
