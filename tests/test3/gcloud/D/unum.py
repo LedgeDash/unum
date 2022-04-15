@@ -73,7 +73,7 @@ class Unum(object):
         except KeyError:
             self.next_payload_modifiers = []
 
-        print(f'Creating data store type: {datastore_type}, and name: {datastore_name}')
+        # print(f'Creating data store type: {datastore_type}, and name: {datastore_name}')
         self.ds = UnumIntermediaryDataStore.create(datastore_type, datastore_name, self.debug)
 
         self.cont_list = []
@@ -84,6 +84,7 @@ class Unum(object):
             if isinstance(config['Next'], dict):
                 self.cont_list.append(
                     UnumContinuation(
+                        self.name,
                         config['Next']['Name'],
                         config['Next']['InputType'],
                         config['Next'].get('Conditional'),
@@ -112,6 +113,7 @@ class Unum(object):
                         # parallel fan-out
                         self.cont_list.append(
                             UnumContinuation(
+                                self.name,
                                 c['Name'],
                                 c['InputType'],
                                 c.get('Conditional'),
@@ -125,6 +127,7 @@ class Unum(object):
                     else:
                         self.cont_list.append(
                             UnumContinuation(
+                                self.name,
                                 c['Name'],
                                 c['InputType'],
                                 c.get('Conditional'),
@@ -176,14 +179,7 @@ class Unum(object):
         session = self.get_session(input_payload)
         instance_name = self.get_my_instance_name(input_payload)
 
-        if self.debug:
-            t1 = time.perf_counter_ns()
-            ds_ret = self.ds.get_checkpoint(session, instance_name)
-            t2 = time.perf_counter_ns()
-
-            print(f'[DS get_checkpoint]{t2-t1}')
-        else:
-            ds_ret = self.ds.get_checkpoint(session, instance_name)
+        ds_ret = self.ds.get_checkpoint(session, instance_name)
 
         if ds_ret == None:
             self.previous_checkpoint = False
@@ -301,22 +297,16 @@ class Unum(object):
             # if a previous checkpoint already exists, skip checkpoint again.
             return -2
 
-        if self.debug:
-            t1 = time.perf_counter_ns()
-            ret = self.ds.checkpoint(self.get_session(input_payload),
-                    self.get_my_instance_name(input_payload),
-                    user_function_output)
-            t2 = time.perf_counter_ns()
-            print(f'[DS checkpoint()]{t2-t1}')
-        else:
-            ret = self.ds.checkpoint(self.get_session(input_payload),
-                    self.get_my_instance_name(input_payload),
-                    user_function_output)
+        ret = self.ds.checkpoint(self.get_session(input_payload),
+                self.get_my_instance_name(input_payload), user_function_output)
 
         if ret == -1:
-            # print(f'[WARN] Checkpoint already exists. Did NOT overwrite data.')
+            # checkpoint already exists
+            if self.debug:
+                print(f'[DEBUG] checkpoint already exists when trying to create. Session: {self.get_session(input_payload)}, instance name: {self.get_my_instance_name(input_payload)}')
+
             return -1
-        elif ret >=1:
+        elif ret >= 1:
             # ds successfully writes checkpoint
             return 0
 
@@ -720,7 +710,7 @@ class UnumContinuationInputType(Enum):
 
 class UnumContinuation(object):
 
-    def __init__(self, function_name, input_type, conditional, invoker, datastore_type, datastore, parallel_index=-1, parallel_size=0,debug=False):
+    def __init__(self, my_node_name, function_name, input_type, conditional, invoker, datastore_type, datastore, parallel_index=-1, parallel_size=0,debug=False):
         '''Given the "Name", "InputType", "Conditional" from the "Next" field
         of a unum config, create a UnumContinuation object
 
@@ -752,6 +742,7 @@ class UnumContinuation(object):
         @param function_name str "Name" field
         @param input_type str or dict "InputType" field
         '''
+        self.my_node_name = my_node_name
         self.function_name = function_name
         self.invoker = invoker
         self.conditional = conditional
@@ -853,7 +844,7 @@ class UnumContinuation(object):
 
         '''
         if self.check_conditional(user_function_output, input_payload, Unum.compute_unum_index_list(input_payload)) == False:
-            return None
+            return {}
 
         if self.input_type == UnumContinuationInputType.SCALAR:
             payload = {}
@@ -998,7 +989,10 @@ class UnumContinuation(object):
             t1 = time.perf_counter_ns()
             ret = self.invoker.invoke(self.function_name, payload)
             t2 = time.perf_counter_ns()
+
+            print(f'Invoking {self.function_name} with payload {payload}')
             print(f'[INVOKER invoke()]{t2-t1}')
+
             return ret
         else:
             return self.invoker.invoke(self.function_name, payload)
@@ -1048,6 +1042,9 @@ class UnumContinuation(object):
 
             payload['GC'] = kwargs['gc']
 
+            if self.debug:
+                print(f'Invoking {self.function_name} with payload {payload}')
+
             self.invoker.invoke(self.function_name, payload)
 
 
@@ -1093,7 +1090,22 @@ class UnumContinuation(object):
 
         aggregation_function_instance_name = Unum.compute_instance_name(self.function_name, payload)
 
-        my_index = unum_index_list[0]
+
+        # deciding my index in the bitmap
+        # if this is a map fan-in, use unum_index_list[0]. Otherwise, use my position in the values list
+        my_index = -1
+
+        for i, v in enumerate(self.fan_in_values):
+            print(f'i: {i}. v: {v}, my node name: {self.my_node_name}')
+            print(f"v.startswith(self.my_node_name): {v.startswith(self.my_node_name)}")
+            if v.startswith(self.my_node_name):
+                print(f"v.endswith('*'): v.endswith('*')")
+                if v.endswith('*'):
+                    my_index = unum_index_list[0]
+                else:
+                    my_index = i
+
+        print(f'[DEBUG] Fan-in values from config: {self.fan_in_values}. My index: {my_index}')        
 
         branch_instance_names = self.expand_all_fan_in_value_names(unum_index_list, input_payload)
 
@@ -1103,9 +1115,12 @@ class UnumContinuation(object):
             payload['Data'] = {'Source': self.datastore.my_type, 'Value': branch_instance_names}
             payload['Session'] = session
 
+            if self.debug:
+                print(f'[DEBUG] Invoking {self.function_name} with {payload}')
+
             self.invoker.invoke(self.function_name, payload)
         else:
-            # fan-in not ready. just return now
+            # fan-in not ready. just return
             pass
 
 

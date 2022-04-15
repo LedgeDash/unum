@@ -1,0 +1,16 @@
+{
+    "Name": "B",
+    "Next": {
+        "Name": "C",
+        "InputType": {
+            "Fan-in": {
+                "Values": [
+                    "B-unumIndex-*"
+                ]
+            }
+        }
+    },
+    "Next Payload Modifiers": ["Pop"],
+    "Checkpoint": true,
+    "Debug": false
+}

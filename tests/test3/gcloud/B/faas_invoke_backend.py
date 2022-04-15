@@ -51,7 +51,7 @@ class GCloudFunctionBackend(InvocationBackend):
         '''Given a gcloud pubsub topic, publish a message to it with content
         of data
         '''
-        print(f'Invoking function: {topic} with data: {data}')
+        # print(f'Invoking function: {topic} with data: {data}')
         try:
             self.pubsub.publish(topic, json.dumps(data).encode('utf-8'))
         except Exception as e:

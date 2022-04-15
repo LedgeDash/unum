@@ -72,7 +72,7 @@ class FirestoreDriver(UnumIntermediaryDataStore):
         Used by the aggregation function to read its inputs
         '''
 
-        print(f'Reading inputs from collection: {collection}, and documents: {documents}')
+        # print(f'Reading inputs from collection: {collection}, and documents: {documents}')
         
         return [self._read(collection, d) for d in documents]
 
@@ -222,7 +222,8 @@ class FirestoreDriver(UnumIntermediaryDataStore):
         collection = bitmap_name[0]
         document = bitmap_name[1]
 
-        print(f'creating collection: {collection} and document: {document} as bitmap of length {bitmap_size}')
+        if self.debug:
+            print(f'creating collection: {collection} and document: {document} as bitmap of length {bitmap_size}')
 
         value = {"ReadyMap": [False for i in range(bitmap_size)]}
 

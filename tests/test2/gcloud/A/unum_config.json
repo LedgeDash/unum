@@ -1,0 +1,10 @@
+{
+    "Name": "A",
+    "Next": {
+        "Name": "B",
+        "InputType": "Map"
+    },
+    "Checkpoint": true,
+    "Debug": false,
+    "Start": true
+}

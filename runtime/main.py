@@ -104,12 +104,14 @@ def ingress(event):
 
         ckpt_vals = unum.ds.read_input(event["Session"], event["Data"]["Value"])
 
-        # print(f'Input values from checkpoints: {ckpt_vals}')
+        if unum.debug:
+            print(f'[DEBUG] Read checkpoints: {event["Session"]}, {event["Data"]["Value"]}')
+            print(f'[DEBUG] Input values from checkpoints: {ckpt_vals}')
+
         gc_tasks = [ckpt["GC"] for ckpt in ckpt_vals]
         unum.my_gc_tasks = {k:v for t in gc_tasks for k,v in t.items()}
 
         input_data = [ckpt["User"] for ckpt in ckpt_vals]
-        # print(f'Input Data:{input_data}')
 
         return input_data
 
@@ -255,7 +257,7 @@ def lambda_handler(event, context):
         input_data = event
 
     if unum.debug:
-        print(f'[DEBUG] Input data: {input_data}')
+        print(f'[DEBUG] My instance name: {unum.get_my_instance_name(input_data)}. Invocation payload: {input_data}')
 
     ckpt_ret = unum.get_checkpoint(input_data)
     if ckpt_ret == None:

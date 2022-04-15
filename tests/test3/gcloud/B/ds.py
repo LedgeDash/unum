@@ -104,15 +104,18 @@ class FirestoreDriver(UnumIntermediaryDataStore):
 
             return 1
         except gcloudexceptions.Conflict as e:
-            if self.debug:
-                print(f'Checkpointing encountered Conflict exception: {e}')
             return -1
         except Exception as e:
-            print(f'Checkpointing encountered unexpected error: {e}')
+            print(f'[ERROR] Checkpointing encountered unexpected error: {e}')
             return -2
 
 
     def checkpoint(self, session, instance_name, data):
+        '''
+
+        @return 1 if successful. -1 if a checkpoint already exists. -2 if
+            other errors.
+        '''
 
         return self._create_if_not_exist(session, instance_name, data)
 
@@ -228,7 +231,11 @@ class FirestoreDriver(UnumIntermediaryDataStore):
 
 
     def _update_bitmap_result(self, bitmap_name, index):
-        transaction = self.db.transaction()
+
+        # The default max retry attempts for Firestore transaction is only 5.
+        # It is too low for fan-outs and I start to see transactions fail
+        # around 15 parallel branches.
+        transaction = self.db.transaction(max_attempts=500)
         bitmap_ref = self.db.collection(bitmap_name[0]).document(bitmap_name[1])
 
         @firestore.transactional
@@ -246,9 +253,14 @@ class FirestoreDriver(UnumIntermediaryDataStore):
 
             return ready_map
 
-        result = _update_my_index(transaction, bitmap_ref)
-
-        return result
+        try:
+            result = _update_my_index(transaction, bitmap_ref)
+        except Exception as e:
+            # If the prior transaction failed, retry after a second
+            result = _update_my_index(transaction, bitmap_ref)
+            return result
+        else:
+            return result
 
 
 

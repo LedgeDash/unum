@@ -7,6 +7,7 @@ import random
 import string
 import re
 import functools
+import copy
 from enum import Enum
 
 from faas_invoke_backend import InvocationBackend
@@ -84,6 +85,7 @@ class Unum(object):
             if isinstance(config['Next'], dict):
                 self.cont_list.append(
                     UnumContinuation(
+                        self.name,
                         config['Next']['Name'],
                         config['Next']['InputType'],
                         config['Next'].get('Conditional'),
@@ -112,6 +114,7 @@ class Unum(object):
                         # parallel fan-out
                         self.cont_list.append(
                             UnumContinuation(
+                                self.name,
                                 c['Name'],
                                 c['InputType'],
                                 c.get('Conditional'),
@@ -125,6 +128,7 @@ class Unum(object):
                     else:
                         self.cont_list.append(
                             UnumContinuation(
+                                self.name,
                                 c['Name'],
                                 c['InputType'],
                                 c.get('Conditional'),
@@ -224,7 +228,9 @@ class Unum(object):
             for c in self.cont_list:
                 next_payload = c.compute_payload_metadata(input_payload, user_function_output, post_modifier_metadata)
 
-                if isinstance(next_payload, list):
+                if next_payload == None:
+                    pass
+                elif isinstance(next_payload, list):
                     for e in next_payload:
                         outgoing_edges.append(Unum.compute_instance_name(c.function_name, e))
                 else:
@@ -244,8 +250,14 @@ class Unum(object):
         Payload Modifiers before passing them to the continuation's run() API.
         '''
 
+        if self.debug:
+            print(f'[DEBUG] Before run_next_payload_modifiers. {self.get_my_instance_name(input_payload)}. My input payload: {input_payload}, My modifiers: {self.next_payload_modifiers}')
+
         session = self.get_session(input_payload)
         next_payload_metadata = self.run_next_payload_modifiers(input_payload)
+
+        if self.debug:
+            print(f'[DEBUG] After run_next_payload_modifiers. {self.get_my_instance_name(input_payload)}. My input payload: {input_payload}, My modifiers: {self.next_payload_modifiers}. Continutaion payload metadata: {next_payload_metadata}')
 
         gc_info = {self.get_my_instance_name(input_payload): self.get_my_outgoing_edges(input_payload, user_function_output)}
 
@@ -323,7 +335,8 @@ class Unum(object):
             print(f'No gc tasks')
             return
 
-        # print(f'My gc tasks:{self.my_gc_tasks}')
+        if self.debug:
+            print(f'[DEBUG] My instance name: {self.curr_instance_name}. My gc tasks:{self.my_gc_tasks}')
 
         for k in self.my_gc_tasks:
             if len(self.my_gc_tasks[k]) == 1:
@@ -362,11 +375,17 @@ class Unum(object):
             the input payload or is removed by a Next Payload Modifier, that
             field is included in the return dict and maps to None.
         '''
-        metadata = {
+        temp = {
             "Fan-out": input_payload.get("Fan-out")
         }
+
+        metadata  = copy.deepcopy(temp)
         for m in self.next_payload_modifiers:
             metadata = self._run_next_payload_modifier(m, metadata)
+
+
+        if self.debug:
+            print(f'[DEBUG] run_next_payload_modifiers. Supposed ORIGINAL input payload: {input_payload}. New metadata: {metadata}')
 
         return metadata
 
@@ -402,7 +421,14 @@ class Unum(object):
         if "$1" in modifier:
             exec_modifier = exec_modifier.replace("$1", 'metadata["Fan-out"]["OuterLoop"]["Index"]')
 
+        if self.debug:
+            print(f'[DEBUG] metadata before modifier: {metadata}')
+
         exec(exec_modifier)
+
+        if self.debug:
+            print(f'[DEBUG] exec_modifier: {exec_modifier}')
+            print(f'[DEBUG] New metadata: {metadata}')
 
         return metadata
 
@@ -707,7 +733,7 @@ class UnumContinuationInputType(Enum):
 
 class UnumContinuation(object):
 
-    def __init__(self, function_name, input_type, conditional, invoker, datastore_type, datastore, parallel_index=-1, parallel_size=0,debug=False):
+    def __init__(self, my_node_name, function_name, input_type, conditional, invoker, datastore_type, datastore, parallel_index=-1, parallel_size=0,debug=False):
         '''Given the "Name", "InputType", "Conditional" from the "Next" field
         of a unum config, create a UnumContinuation object
 
@@ -739,6 +765,7 @@ class UnumContinuation(object):
         @param function_name str "Name" field
         @param input_type str or dict "InputType" field
         '''
+        self.my_node_name = my_node_name
         self.function_name = function_name
         self.invoker = invoker
         self.conditional = conditional
@@ -982,12 +1009,11 @@ class UnumContinuation(object):
         payload['GC'] = kwargs['gc']
 
         if self.debug:
-            t1 = time.perf_counter_ns()
+            # t1 = time.perf_counter_ns()
             ret = self.invoker.invoke(self.function_name, payload)
-            t2 = time.perf_counter_ns()
+            # t2 = time.perf_counter_ns()
 
-            print(f'Invoking {self.function_name} with payload {payload}')
-            print(f'[INVOKER invoke()]{t2-t1}')
+            print(f'[DEBUG] {self.my_node_name}-{unum_index_list} is invoking {self.function_name} with {payload}')
 
             return ret
         else:
@@ -1039,7 +1065,7 @@ class UnumContinuation(object):
             payload['GC'] = kwargs['gc']
 
             if self.debug:
-                print(f'Invoking {self.function_name} with payload {payload}')
+                print(f'[DEBUG] {self.my_node_name}-{unum_index_list} is invoking {self.function_name} with {payload}')
 
             self.invoker.invoke(self.function_name, payload)
 
@@ -1086,7 +1112,22 @@ class UnumContinuation(object):
 
         aggregation_function_instance_name = Unum.compute_instance_name(self.function_name, payload)
 
-        my_index = unum_index_list[0]
+
+        # deciding my index in the bitmap
+        # if this is a map fan-in, use unum_index_list[0]. Otherwise, use my position in the values list
+        my_index = -1
+
+        for i, v in enumerate(self.fan_in_values):
+            # print(f'i: {i}. v: {v}, my node name: {self.my_node_name}')
+            # print(f"v.startswith(self.my_node_name): {v.startswith(self.my_node_name)}")
+            if v.startswith(self.my_node_name):
+                # print(f"v.endswith('*'): v.endswith('*')")
+                if v.endswith('*'):
+                    my_index = unum_index_list[0]
+                else:
+                    my_index = i
+
+        # print(f'[DEBUG] Fan-in values from config: {self.fan_in_values}. My index: {my_index}')        
 
         branch_instance_names = self.expand_all_fan_in_value_names(unum_index_list, input_payload)
 
@@ -1097,7 +1138,7 @@ class UnumContinuation(object):
             payload['Session'] = session
 
             if self.debug:
-                print(f'[DEBUG] Invoking {self.function_name} with {payload}')
+                print(f'[DEBUG] {self.my_node_name}-{unum_index_list} is invoking {self.function_name} with {payload}')
 
             self.invoker.invoke(self.function_name, payload)
         else:

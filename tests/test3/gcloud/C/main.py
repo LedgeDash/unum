@@ -104,7 +104,7 @@ def ingress(event):
 
         ckpt_vals = unum.ds.read_input(event["Session"], event["Data"]["Value"])
 
-        print(f'Input values from checkpoints: {ckpt_vals}')
+        # print(f'Input values from checkpoints: {ckpt_vals}')
         gc_tasks = [ckpt["GC"] for ckpt in ckpt_vals]
         unum.my_gc_tasks = {k:v for t in gc_tasks for k,v in t.items()}
 
@@ -132,11 +132,6 @@ def egress(user_function_output, event):
     whether the user function ran before. To guarantee at-least-once
     execution, unum would have to run the user function even if it ran
     previously.
-
-    If 
-
-    --
-    Checkpoint, construct payload for continuation, invoke continuation
     '''
 
     # Compute all the outgoing edges for this execution.
@@ -169,12 +164,10 @@ def egress(user_function_output, event):
         "User": user_function_output
     }
 
-    t1 = time.perf_counter_ns()
     ret = unum.run_checkpoint(event, checkpoint_data)
-    t2 = time.perf_counter_ns()
 
     next_payload_metadata = None
-    
+
     if ret == 0:
         # checkpoint on and checkpoint succeeded
 
@@ -185,9 +178,7 @@ def egress(user_function_output, event):
     elif ret == -1:
         # checkpoint on and checkpoint failed due to concurrent instance beat
         # me to checkpoint.
-
         # Do not invoke continuations. 
-        print(f'Checkpoint already exists. Session: {unum.curr_session}')
         pass
     elif ret == -2:
         # checkpoint on and a checkpoint already exists before running the
@@ -210,7 +201,7 @@ def egress(user_function_output, event):
         session, next_payload_metadata = unum.run_continuation(event, user_function_output)
         t4 = time.perf_counter_ns()
     else:
-        print(f'Unknown run_checkpoint() return value: {ret}')
+        print(f'[ERROR] Unknown run_checkpoint() return value: {ret}')
 
     session = unum.curr_session
 
@@ -218,9 +209,6 @@ def egress(user_function_output, event):
     unum.run_gc()
 
     unum.cleanup()
-
-    if unum.debug:
-        print(f'[Unum Wrapper.egress]run_checkpoint: {t2-t1}; run_continuation: {t4-t3}')
 
     return session, next_payload_metadata
 
@@ -258,57 +246,30 @@ def lambda_handler(event, context):
 
     unum.cleanup()
 
+    if os.environ['FAAS_PLATFORM'] == 'gcloud':
+        if 'data' in event:
+            input_data = base64.b64decode(event['data']).decode('utf-8')
+            input_data = json.loads(input_data)
+
+    elif os.environ['FAAS_PLATFORM'] == 'aws':
+        input_data = event
+
     if unum.debug:
+        print(f'[DEBUG] Input data: {input_data}')
 
-        t1 = time.perf_counter_ns()
-        ckpt_ret = unum.get_checkpoint(event)
-        t2 = time.perf_counter_ns()
-
-        if ckpt_ret == None:
-            user_function_input = ingress(event)
-
-            t3 = time.perf_counter_ns()
-            user_function_output = user_lambda(user_function_input, context)
-            t4 = time.perf_counter_ns()
-
-        else:
-            user_function_output = ckpt_ret
-
-        t5 = time.perf_counter_ns()
-        session, next_payload_metadata = egress(user_function_output, event)
-        t6 = time.perf_counter_ns()
-
-        print(f'[Unum Wrapper] get_checkpoint:{t2-t1}; user_lambda: {t4-t3}; egress: {t6-t5}')
-
-        return user_function_output, session, next_payload_metadata
-
+    ckpt_ret = unum.get_checkpoint(input_data)
+    if ckpt_ret == None:
+        user_function_input = ingress(input_data)
+        user_function_output = user_lambda(user_function_input, context)
+        if unum.debug:
+            print(f'[DEBUG] User function input: {user_function_input}')
+            print(f'[DEBUG] User function output: {user_function_output}')
     else:
+        user_function_output = ckpt_ret
 
-        if os.environ['FAAS_PLATFORM'] == 'gcloud':
-            # print("""This Function was triggered by messageId {} published at {} to {}
-            # """.format(context.event_id, context.timestamp, context.resource["name"]))
+        if unum.debug:
+            print(f'[DEBUG] User function output from a prior checkpoint: {user_function_output}')
 
-            if 'data' in event:
-                input_data = base64.b64decode(event['data']).decode('utf-8')
-                input_data = json.loads(input_data)
+    session, next_payload_metadata = egress(user_function_output, input_data)
 
-                print(f'[gcloud debug] Input data: {input_data}')
-
-            # unum.ds.test()
-
-        elif os.environ['FAAS_PLATFORM'] == 'aws':
-            input_data = event
-
-        ckpt_ret = unum.get_checkpoint(input_data)
-        if ckpt_ret == None:
-            user_function_input = ingress(input_data)
-            user_function_output = user_lambda(user_function_input, context)
-        else:
-            user_function_output = ckpt_ret
-            
-        session, next_payload_metadata = egress(user_function_output, input_data)
-
-        # if os.environ['FAAS_PLATFORM'] == 'gcloud':
-        #     print(f'Function completed with session: {session}')
-
-        return user_function_output, session, next_payload_metadata
+    return user_function_output, session, next_payload_metadata
