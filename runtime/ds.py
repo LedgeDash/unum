@@ -420,11 +420,6 @@ class DynamoDBDriver(UnumIntermediaryDataStore):
                 RequestItems={
                     self.name: {
                         'Keys': this_batch,
-                        'ProjectionExpression': '#Name, #Value',
-                        'ExpressionAttributeNames': {
-                            '#Name': 'Name',
-                            '#Value': 'Value'
-                        },
                         'ConsistentRead': True,
                     }
                 })
@@ -440,7 +435,18 @@ class DynamoDBDriver(UnumIntermediaryDataStore):
         # return a sorted array by the originally requested order
         order = {n: i for i, n in enumerate(item_names)}
 
-        vals = [json.loads(e['Value']) for e in sorted(all_ret, key=lambda d: order[d['Name']])]
+        vals = []
+
+        for e in sorted(all_ret, key=lambda d: order[d['Name']]):
+            item = {
+                'User': json.loads(e['User']),
+                'Name': e['Name']
+            }
+            if 'GC' in e:
+                item['GC'] = e['GC']
+
+            vals.append(item)
+
 
         if len(vals) < len(values):
             print(f'[WARN] Not all values for fan-in were read from {self.my_type}')
