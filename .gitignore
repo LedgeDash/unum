@@ -3,3 +3,5 @@ dist/
 *.egg-info/
 .unum/
 *.log
+.aws-sam
+*.old
