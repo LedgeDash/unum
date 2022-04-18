@@ -1,0 +1,8 @@
+A: arn:aws:lambda:us-west-1:746167823857:function:unum-test6-AFunction-s3W9hjtS6A7r
+B: arn:aws:lambda:us-west-1:746167823857:function:unum-test6-BFunction-bzr5qlLL5Kq3
+C: arn:aws:lambda:us-west-1:746167823857:function:unum-test6-CFunction-3D5M1FpQhl88
+D: arn:aws:lambda:us-west-1:746167823857:function:unum-test6-DFunction-FrYtxVCRE8DM
+E: arn:aws:lambda:us-west-1:746167823857:function:unum-test6-EFunction-Fot0er62EhDq
+F: arn:aws:lambda:us-west-1:746167823857:function:unum-test6-FFunction-i5KO1k9e2Nxj
+G: arn:aws:lambda:us-west-1:746167823857:function:unum-test6-GFunction-4QXe9a64NW9V
+H: arn:aws:lambda:us-west-1:746167823857:function:unum-test6-HFunction-sJRhQlcw3hjT

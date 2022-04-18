@@ -1,0 +1,117 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Globals:
+  Function:
+    Environment:
+      Variables:
+        CHECKPOINT: false
+        FAAS_PLATFORM: aws
+        UNUM_INTERMEDIARY_DATASTORE_NAME: unum-intermediate-datastore
+        UNUM_INTERMEDIARY_DATASTORE_TYPE: dynamodb
+    Timeout: 900
+Outputs:
+  AFunction:
+    Value: !GetAtt AFunction.Arn
+  BFunction:
+    Value: !GetAtt BFunction.Arn
+  CFunction:
+    Value: !GetAtt CFunction.Arn
+  DFunction:
+    Value: !GetAtt DFunction.Arn
+  EFunction:
+    Value: !GetAtt EFunction.Arn
+  FFunction:
+    Value: !GetAtt FFunction.Arn
+  GFunction:
+    Value: !GetAtt GFunction.Arn
+  HFunction:
+    Value: !GetAtt HFunction.Arn
+Resources:
+  AFunction:
+    Properties:
+      CodeUri: A/
+      Handler: main.lambda_handler
+      Policies:
+        - AmazonS3FullAccess
+        - AWSLambdaBasicExecutionRole
+        - AWSLambdaRole
+        - AmazonDynamoDBFullAccess
+      Runtime: python3.8
+    Type: AWS::Serverless::Function
+  BFunction:
+    Properties:
+      CodeUri: B/
+      Handler: main.lambda_handler
+      Policies:
+        - AmazonS3FullAccess
+        - AWSLambdaBasicExecutionRole
+        - AWSLambdaRole
+        - AmazonDynamoDBFullAccess
+      Runtime: python3.8
+    Type: AWS::Serverless::Function
+  CFunction:
+    Properties:
+      CodeUri: C/
+      Handler: main.lambda_handler
+      Policies:
+        - AmazonS3FullAccess
+        - AWSLambdaBasicExecutionRole
+        - AWSLambdaRole
+        - AmazonDynamoDBFullAccess
+      Runtime: python3.8
+    Type: AWS::Serverless::Function
+  DFunction:
+    Properties:
+      CodeUri: D/
+      Handler: main.lambda_handler
+      Policies:
+        - AmazonS3FullAccess
+        - AWSLambdaBasicExecutionRole
+        - AWSLambdaRole
+        - AmazonDynamoDBFullAccess
+      Runtime: python3.8
+    Type: AWS::Serverless::Function
+  EFunction:
+    Properties:
+      CodeUri: E/
+      Handler: main.lambda_handler
+      Policies:
+        - AmazonS3FullAccess
+        - AWSLambdaBasicExecutionRole
+        - AWSLambdaRole
+        - AmazonDynamoDBFullAccess
+      Runtime: python3.8
+    Type: AWS::Serverless::Function
+  FFunction:
+    Properties:
+      CodeUri: F/
+      Handler: main.lambda_handler
+      Policies:
+        - AmazonS3FullAccess
+        - AWSLambdaBasicExecutionRole
+        - AWSLambdaRole
+        - AmazonDynamoDBFullAccess
+      Runtime: python3.8
+    Type: AWS::Serverless::Function
+  GFunction:
+    Properties:
+      CodeUri: G/
+      Handler: main.lambda_handler
+      Policies:
+        - AmazonS3FullAccess
+        - AWSLambdaBasicExecutionRole
+        - AWSLambdaRole
+        - AmazonDynamoDBFullAccess
+      Runtime: python3.8
+    Type: AWS::Serverless::Function
+  HFunction:
+    Properties:
+      CodeUri: H/
+      Handler: main.lambda_handler
+      Policies:
+        - AmazonS3FullAccess
+        - AWSLambdaBasicExecutionRole
+        - AWSLambdaRole
+        - AmazonDynamoDBFullAccess
+      Runtime: python3.8
+    Type: AWS::Serverless::Function
+Transform: AWS::Serverless-2016-10-31

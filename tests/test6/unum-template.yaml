@@ -5,7 +5,7 @@ Globals:
   FaaSPlatform: aws
   UnumIntermediaryDataStoreType: dynamodb
   UnumIntermediaryDataStoreName: unum-intermediate-datastore
-  Checkpoint: true
+  Checkpoint: false
   Debug: false
 Functions:
   A:
