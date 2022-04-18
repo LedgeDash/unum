@@ -1,0 +1,45 @@
+{
+  "StartAt": "A",
+  "States": {
+    "A": {
+      "Type": "Task",
+      "Resource": "A",
+      "Next": "B"
+    },
+    "B": {
+      "Type": "Task",
+      "Resource": "B",
+      "Next": "C"
+    },
+    "C": {
+      "Type": "Task",
+      "Resource": "C",
+      "Next": "D"
+    },
+    "D": {
+      "Type": "Task",
+      "Resource": "D",
+      "Next": "E"
+    },
+    "E": {
+      "Type": "Task",
+      "Resource": "E",
+      "Next": "F"
+    },
+    "F": {
+      "Type": "Task",
+      "Resource": "F",
+      "Next": "G"
+    },
+    "G": {
+      "Type": "Task",
+      "Resource": "G",
+      "Next": "H"
+    },
+    "H": {
+      "Type": "Task",
+      "Resource": "H",
+      "End":true
+    }
+  }
+}

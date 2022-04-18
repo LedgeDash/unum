@@ -1,0 +1,43 @@
+Globals:
+  ApplicationName: unum-test6
+  WorkflowType: step-functions
+  WorkflowDefinition: unum-step-functions.json
+  FaaSPlatform: aws
+  UnumIntermediaryDataStoreType: dynamodb
+  UnumIntermediaryDataStoreName: unum-intermediate-datastore
+  Checkpoint: true
+  Debug: false
+Functions:
+  A:
+    Properties:
+      CodeUri: A/
+      Runtime: python3.8
+      Start: true
+  B:
+    Properties:
+      CodeUri: B/
+      Runtime: python3.8
+  C:
+    Properties:
+      CodeUri: C/
+      Runtime: python3.8
+  D:
+    Properties:
+      CodeUri: D/
+      Runtime: python3.8
+  E:
+    Properties:
+      CodeUri: E/
+      Runtime: python3.8
+  F:
+    Properties:
+      CodeUri: F/
+      Runtime: python3.8
+  G:
+    Properties:
+      CodeUri: G/
+      Runtime: python3.8
+  H:
+    Properties:
+      CodeUri: H/
+      Runtime: python3.8
