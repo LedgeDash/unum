@@ -36,7 +36,8 @@ except Exception as e:
 unum = Unum(config,
     os.environ['UNUM_INTERMEDIARY_DATASTORE_TYPE'],
     os.environ['UNUM_INTERMEDIARY_DATASTORE_NAME'],
-    os.environ['FAAS_PLATFORM'])
+    os.environ['FAAS_PLATFORM'],
+    os.environ['GC'])
 
 def ingress(event):
     '''Extract user function input from the request
@@ -97,7 +98,8 @@ def ingress(event):
 
     if event["Data"]["Source"] =="http":
         if unum.entry_function == False:
-            unum.my_gc_tasks = event['GC']
+            if unum.gc == True:
+                unum.my_gc_tasks = event['GC']
 
         return event["Data"]["Value"]
     else:
@@ -108,10 +110,11 @@ def ingress(event):
             print(f'[DEBUG] Read checkpoints: {event["Session"]}, {event["Data"]["Value"]}')
             print(f'[DEBUG] Input values from checkpoints: {ckpt_vals}')
 
-        gc_tasks = [ckpt["GC"] for ckpt in ckpt_vals]
-        unum.my_gc_tasks = {k:v for t in gc_tasks for k,v in t.items()}
+        if unum.gc == True:
+            gc_tasks = [ckpt["GC"] for ckpt in ckpt_vals]
+            unum.my_gc_tasks = {k:v for t in gc_tasks for k,v in t.items()}
 
-        unum.fan_in_gc = True
+            unum.fan_in_gc = True
 
         input_data = [ckpt["User"] for ckpt in ckpt_vals]
 
@@ -147,9 +150,19 @@ def egress(user_function_output, event):
     #
     # See Unum.get_my_outgoing_edges for details on how outgoing edges are
     # computed.
-    gc = {
-        unum.get_my_instance_name(event): unum.get_my_outgoing_edges(event, user_function_output)
-    }
+
+    if unum.gc == True:
+        gc = {
+            unum.get_my_instance_name(event): unum.get_my_outgoing_edges(event, user_function_output)
+        }
+        checkpoint_data = {
+            'GC': gc,
+            "User": json.dumps(user_function_output)
+        }
+    else:
+        checkpoint_data = {
+            "User": json.dumps(user_function_output)
+        }
 
 
     # Checkpoint first, before invoking continuations
@@ -162,11 +175,6 @@ def egress(user_function_output, event):
     # function will be invoked by only one of the branches and the invoker
     # branch cannot have complete knowledge on the outgoing branches of its sibling
     # branches.
-
-    checkpoint_data = {
-        'GC': gc,
-        "User": user_function_output
-    }
 
     ret = unum.run_checkpoint(event, checkpoint_data)
 
@@ -210,7 +218,8 @@ def egress(user_function_output, event):
     session = unum.curr_session
 
     # Garbage collect my parents' checkpoints
-    unum.run_gc()
+    if unum.gc == True:
+        unum.run_gc()
 
     unum.cleanup()
 

@@ -16,7 +16,7 @@ from faas_invoke_backend import InvocationBackend
 
 class Unum(object):
 
-    def __init__(self, config, datastore_type, datastore_name, platform):
+    def __init__(self, config, datastore_type, datastore_name, platform, gc):
         '''Given a unum configuration, unum intermediary data store info,
         create the runtime context for this function to run.
 
@@ -45,6 +45,15 @@ class Unum(object):
         '''
         self.name = config['Name']
         self.platform = platform
+        if isinstance(gc, str):
+            if gc == 'True' or gc == 'true':
+                self.gc = True
+            elif gc == 'False' or gc == 'false':
+                self.gc = False
+            else:
+                self.gc = True
+        elif isinstance(gc, bool):
+            self.gc = gc
 
         try:
             self.checkpoint = config['Checkpoint']
@@ -225,7 +234,7 @@ class Unum(object):
 
         @return a list of instance names
         '''
-
+        
         if self.my_outgoing_edges == None:
 
             post_modifier_metadata = self.run_next_payload_modifiers(input_payload)

@@ -536,7 +536,7 @@ class DynamoDBDriver(UnumIntermediaryDataStore):
             else:
                 raise e
         except Exception as e:
-            print(f"[WARN] Error Code is {e.response['Error']['Code']}")
+            # print(f"[WARN] Error Code is {e.response['Error']['Code']}")
             raise e
 
 

@@ -36,7 +36,8 @@ def generate_sam_template(unum_template):
                         "UNUM_INTERMEDIARY_DATASTORE_TYPE": unum_template["Globals"]["UnumIntermediaryDataStoreType"],
                         "UNUM_INTERMEDIARY_DATASTORE_NAME": unum_template["Globals"]["UnumIntermediaryDataStoreName"],
                         "FAAS_PLATFORM": unum_template["Globals"]["FaaSPlatform"],
-                        "CHECKPOINT":unum_template["Globals"]["Checkpoint"]
+                        "CHECKPOINT":unum_template["Globals"]["Checkpoint"],
+                        "GC":unum_template["Globals"]["GC"]
                     }
                 }
             }
