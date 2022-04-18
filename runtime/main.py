@@ -111,6 +111,8 @@ def ingress(event):
         gc_tasks = [ckpt["GC"] for ckpt in ckpt_vals]
         unum.my_gc_tasks = {k:v for t in gc_tasks for k,v in t.items()}
 
+        unum.fan_in_gc = True
+
         input_data = [ckpt["User"] for ckpt in ckpt_vals]
 
         return input_data
@@ -174,9 +176,9 @@ def egress(user_function_output, event):
         # checkpoint on and checkpoint succeeded
 
         # invoke continuation with my user function results
-        t3 = time.perf_counter_ns()
-        session, next_payload_metadata = unum.run_continuation(event, user_function_output)
-        t4 = time.perf_counter_ns()
+        # t3 = time.perf_counter_ns()
+        session, next_payload_vmetadata = unum.run_continuation(event, user_function_output)
+        # t4 = time.perf_counter_ns()
     elif ret == -1:
         # checkpoint on and checkpoint failed due to concurrent instance beat
         # me to checkpoint.
@@ -190,18 +192,18 @@ def egress(user_function_output, event):
         # existing checkpoint already and I need to invoke my continuations
         # again because there's no way for me to tell whether the previous
         # instance has done that or not.
-        t3 = time.perf_counter_ns()
+        # t3 = time.perf_counter_ns()
         session, next_payload_metadata = unum.run_continuation(event, user_function_output)
-        t4 = time.perf_counter_ns()
+        # t4 = time.perf_counter_ns()
     elif ret == None:
         # checkpoint off
 
         # I have to always invoke the continuations because there's no way for
         # me to tell if there was a previous instance or if there's concurrent
         # instances.
-        t3 = time.perf_counter_ns()
+        # t3 = time.perf_counter_ns()
         session, next_payload_metadata = unum.run_continuation(event, user_function_output)
-        t4 = time.perf_counter_ns()
+        # t4 = time.perf_counter_ns()
     else:
         print(f'[ERROR] Unknown run_checkpoint() return value: {ret}')
 

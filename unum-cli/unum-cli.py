@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import json, os, sys, subprocess, time
 import argparse
+import shutil
 import yaml
 try:
     from yaml import CLoader as Loader, CDumper as Dumper
@@ -69,7 +70,7 @@ def generate_sam_template(unum_template):
         sam_template["Resources"][f'{f}Function'] = {
                 "Type":"AWS::Serverless::Function",
                 "Properties": {
-                    "Handler":"wrapper.lambda_handler",
+                    "Handler":"main.lambda_handler",
                     "Runtime": unum_template["Functions"][f]["Properties"]["Runtime"],
                     "CodeUri": unum_template["Functions"][f]["Properties"]["CodeUri"],
                     "Policies": list(set(unum_function_needed_policies) | set(unum_function_policies))
@@ -126,8 +127,7 @@ def sam_build(platform_template, args):
         subprocess.run(f'cp common/* {app_dir}', shell=True, check=True)
 
     try:
-        ret = subprocess.run(["sam", "build",
-            "-t", args.platform_template],
+        ret = subprocess.run(["sam", "build", "-t", args.platform_template, "--use-container"],
             capture_output=True, check= True)
         print(f'\033[32mBuild Succeeded\033[0m\n')
         print(f'\033[33mBuilt Artifacts  : .aws-sam/build\033[0m')
@@ -136,8 +136,9 @@ def sam_build(platform_template, args):
         print(f'\033[33m[*] Deploy: unum-cli deploy\033[0m\n')
     except Exception as e:
         print(f'\033[31m \n Build Failed!\n\n AWS SAM failed to build due to:')
-        print(f'{ret.stderr}')
-        raise e
+        # print(f'{ret.stderr}')
+        print(e)
+        # raise e
     
 
 def build(args):
@@ -430,19 +431,31 @@ def deploy_sam(args):
         function_to_arn_mapping = create_function_arn_mapping(sam_output, unum_template)
         print(f'\033[32m\n Function-to-arn Mapping Created\033[0m\n')
 
-        # update the unum_config.json in all functions (in the build artifacts, not source code)
-        print(f'Updating unum configuration ......')
-        if update_unum_config_continuation_to_arn(platform_template, function_to_arn_mapping) == False:
+    # copy function-arn.yaml into .aws-sam/build/[function_name]/
+    base_dir = f'.aws-sam/build'
 
-            # If updating unum configuration fails at this point, rollback
-            print(f'\033[31m\nFailed to update unum configuration\033[0m\n')
-            rollback_first_deployment()
-            print(f'\033[31m\nTrial deployment rolled back\033[0m\n')
-            print(f'\033[31m\nDeployment Failed\033[0m\n')
-            exit(1)
+    for f in platform_template["Resources"]:
+        if platform_template["Resources"][f]["Type"] == 'AWS::Serverless::Function':
+            function_artifact_dir = f'{base_dir}/{f}'
 
-        print(f'\033[32m \nAll unum configuration updated\033[0m\n')
-        time.sleep(5)
+            print(f'[*] Copying function-arn.yaml into {function_artifact_dir}')
+
+            shutil.copy('function-arn.yaml', function_artifact_dir)
+
+
+        # # update the unum_config.json in all functions (in the build artifacts, not source code)
+        # print(f'Updating unum configuration ......')
+        # if update_unum_config_continuation_to_arn(platform_template, function_to_arn_mapping) == False:
+
+        #     # If updating unum configuration fails at this point, rollback
+        #     print(f'\033[31m\nFailed to update unum configuration\033[0m\n')
+        #     rollback_first_deployment()
+        #     print(f'\033[31m\nTrial deployment rolled back\033[0m\n')
+        #     print(f'\033[31m\nDeployment Failed\033[0m\n')
+        #     exit(1)
+
+        # print(f'\033[32m \nAll unum configuration updated\033[0m\n')
+        # time.sleep(5)
 
     # Validate build artifacts first
     # User might have run unum-cli build asynchronously.
@@ -457,21 +470,21 @@ def deploy_sam(args):
 
         raise ValueError(f'Invalid build artifacts')
 
-    if validate_sam_build_artifacts_unum_config() == False:
-        if os.path.isfile('function-arn.yaml'):
-            with open('function-arn.yaml') as f:
-                function_to_arn_mapping = load_yaml(f.read())
+    # if validate_sam_build_artifacts_unum_config() == False:
+    #     if os.path.isfile('function-arn.yaml'):
+    #         with open('function-arn.yaml') as f:
+    #             function_to_arn_mapping = load_yaml(f.read())
 
-            update_unum_config_continuation_to_arn(platform_template, function_to_arn_mapping)
+            # update_unum_config_continuation_to_arn(platform_template, function_to_arn_mapping)
 
-        else:
-            print(f'\033[31m \nDeploy Failed!\n\n Invalid build artifacts\033[0m\n')
-            print(f'\033[31m unum configurations do not contain ARNs and function-arn.yaml does not exist.\033[0m\n')
-            if first_deploy:
-                # rollback if this is the first time deploying
-                rollback_first_deployment()
+    #     else:
+    #         print(f'\033[31m \nDeploy Failed!\n\n Invalid build artifacts\033[0m\n')
+    #         print(f'\033[31m unum configurations do not contain ARNs and function-arn.yaml does not exist.\033[0m\n')
+    #         if first_deploy:
+    #             # rollback if this is the first time deploying
+    #             rollback_first_deployment()
 
-            raise ValueError(f'Invalid build artifacts')
+    #         raise ValueError(f'Invalid build artifacts')
 
 
     # deploy

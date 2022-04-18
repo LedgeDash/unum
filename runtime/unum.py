@@ -48,13 +48,11 @@ class Unum(object):
 
         try:
             self.checkpoint = config['Checkpoint']
-            if self.checkpoint:
-                self.run_checkpoint = self._run_checkpoint
-            else:
-                self.run_checkpoint = noop
+            self.run_checkpoint = self._run_checkpoint
+
         except KeyError:
             self.checkpoint = False
-            self.run_checkpoint = noop
+            self.run_checkpoint = self._run_checkpoint
 
         try:
             self.debug = config['Debug']
@@ -143,6 +141,12 @@ class Unum(object):
         self.curr_session = None
         self.curr_instance_name = None
         self.curr_unumIndex_str = None
+        # when checkpointing is turned off, we decide whether GC is neede
+        # based on whether data is passed in via data store (in ingress). If
+        # data is passed in via datastore, that means it's a fan-in, in which
+        # case the invoker functions must have checkpointed their outputs and
+        # this node needs to perform gc.
+        self.fan_in_gc = False
 
         # curr_unumIndex_list should be
         #   1. None at the beginning of invocation
@@ -177,6 +181,9 @@ class Unum(object):
 
         @param input_payload dict the `event` from the lambda input
         '''
+        if self.debug == False:
+            return None
+
         session = self.get_session(input_payload)
         instance_name = self.get_my_instance_name(input_payload)
 
@@ -306,6 +313,12 @@ class Unum(object):
             # if a previous checkpoint already exists, skip checkpoint again.
             return -2
 
+        # If checkpoint is turned off and this node does not perform fan-in,
+        # there is no need to checkpoint the data at all. Return None to
+        # indicate checkpoint is off.
+        if self.checkpoint == False and self.no_fan_in_continuation():
+            return None
+
         ret = self.ds.checkpoint(self.get_session(input_payload),
                 self.get_my_instance_name(input_payload), user_function_output)
 
@@ -332,7 +345,13 @@ class Unum(object):
             return
 
         if len(self.my_gc_tasks) == 0:
-            print(f'No gc tasks')
+            if self.debug:
+                print(f'[DEBUG] No gc tasks')
+            return
+
+        if self.checkpoint == False and self.fan_in_gc == False:
+            if self.debug:
+                print(f'[DEBUG] Checkpoint turned of. No need to perform gc.')
             return
 
         if self.debug:
@@ -357,6 +376,14 @@ class Unum(object):
             else:
                 print(f'self.my_gc_tasks[k] has no element: {self.my_gc_tasks[k]}')
 
+
+
+    def no_fan_in_continuation(self):
+        for c in self.cont_list:
+            if c.input_type == UnumContinuationInputType.FAN_IN:
+                return False
+
+        return True
 
 
 

@@ -1,13 +1,11 @@
 import json
 import os
-
 from cfn_tools import load_yaml, dump_yaml
 
 if os.environ['FAAS_PLATFORM'] == 'aws':
     import boto3
 elif os.environ['FAAS_PLATFORM'] =='gcloud':
     from google.cloud import pubsub_v1
-
 
 
 class InvocationBackend(object):
@@ -65,17 +63,23 @@ class AWSLambdaBackend(InvocationBackend):
 
     def __init__(self):
         self.lambda_client = boto3.client("lambda")
+        try:
+            with open('function-arn.yaml', 'r') as f:
+                self.mapping = load_yaml(f.read())
+
+        except Exception as e:
+            raise e
 
     def invoke(self, function, data):
-        return self._http_invoke_async(function, data)
+        return self._http_invoke_async(self.mapping[function], data)
 
-    def _http_invoke_async(self, function, data):
+    def _http_invoke_async(self, function_arn, data):
         '''
         @param function string function arn
         @param data dict
         '''
         response = self.lambda_client.invoke(
-            FunctionName=function,
+            FunctionName=function_arn,
             InvocationType='Event',
             LogType='None',
             Payload=json.dumps(data),
