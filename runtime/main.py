@@ -32,11 +32,21 @@ except Exception as e:
 #
 # Alternatively, we can include this information entirely inside the IR (i.e.,
 # unum_config.json). Doing this requires changes to the compiler.
-unum = Unum(config,
+
+if os.environ['FAAS_PLATFORM'] == 'gcloud':
+    unum = Unum(config,
     os.environ['UNUM_INTERMEDIARY_DATASTORE_TYPE'],
     os.environ['UNUM_INTERMEDIARY_DATASTORE_NAME'],
     os.environ['FAAS_PLATFORM'],
-    os.environ['GC'])
+    os.environ['GC']=="True")
+else:
+    unum = Unum(config,
+        os.environ['UNUM_INTERMEDIARY_DATASTORE_TYPE'],
+        os.environ['UNUM_INTERMEDIARY_DATASTORE_NAME'],
+        os.environ['FAAS_PLATFORM'],
+        os.environ['GC'])
+
+
 
 def ingress(event):
     '''Extract user function input from the request
