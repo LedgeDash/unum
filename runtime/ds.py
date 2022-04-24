@@ -56,6 +56,8 @@ class FirestoreDriver(UnumIntermediaryDataStore):
 
 
     def _read(self, collection, document):
+        '''Read a single document from a collection
+        '''
         doc_ref = self.db.collection(u'{}'.format(collection)).document(u'{}'.format(document))
 
         doc = doc_ref.get()
@@ -71,28 +73,26 @@ class FirestoreDriver(UnumIntermediaryDataStore):
 
         Used by the aggregation function to read its inputs
         '''
-
-        # print(f'Reading inputs from collection: {collection}, and documents: {documents}')
+        if self.debug:
+            print(f'[DEBUG] Reading inputs from collection: {collection}, and documents: {documents}')
         
         return [self._read(collection, d) for d in documents]
 
 
 
     def get_checkpoint(self, session, instance_name):
-        
         return self._read(session, instance_name)
 
 
 
     def _create_if_not_exist(self, collection, document, value):
         '''
-
         According to
         https://googleapis.dev/python/firestore/latest/document.html#google.cloud.firestore_v1.document.DocumentReference.create,
         create() will fail with google.cloud.exceptions.Conflict if the
         document already exists.
 
-        It's not fully clear whether create if strongly consistent in that if
+        It's not fully clear whether create is strongly consistent in that if
         I have 2 concurrent threads calling create, does it guarantee that one
         of the create() calls will fail with google.cloud.exceptions.Conflict?
         '''
@@ -101,7 +101,6 @@ class FirestoreDriver(UnumIntermediaryDataStore):
 
         try:
             doc_ref.create(value)
-
             return 1
         except gcloudexceptions.Conflict as e:
             return -1
@@ -141,13 +140,11 @@ class FirestoreDriver(UnumIntermediaryDataStore):
 
 
     def gc_sync_point_name(self, session, parent_function_instance_name):
-
         return session, f'{parent_function_instance_name}-gc'
 
 
 
     def fanin_sync_point_name(self, session, aggregation_function_instance_name):
-
         return session, f'{aggregation_function_instance_name}-fanin'
 
 
@@ -201,12 +198,32 @@ class FirestoreDriver(UnumIntermediaryDataStore):
             Firestore document name)
         @param index caller's index in the synchronization object
         @param num_branches the number of nodes that need to synchronize
+
+        @return True if all branches are ready. False if not.
         '''
         return self._sync_ready_bitmap(sync_point_name, index, num_branches)
 
 
 
     def _sync_ready_bitmap(self, sync_point_name, index, num_branches):
+        '''Synchronize using a bitmap in Firestore
+
+        First create a bitmap if it does not yet exist.
+
+        Second flip the bit at index `index` in the bitmap.
+
+        Finally return if the bitmap is all 1's after the write in the 2nd
+        step
+
+        @param sync_point_name tuple of session ID and the document name of
+            the bitmap object to be created
+        @param index int the index of this function in the bitmap.
+            self._update_bitmap_result will flip the bit at this index
+        @param num_branches int total number branches which is the length of
+            the bitmap to be created
+
+        @return True if all branches are ready. False if not.
+        '''
         self._create_bitmap(sync_point_name, num_branches)
         ready_map = self._update_bitmap_result(sync_point_name, index)
 
@@ -215,9 +232,11 @@ class FirestoreDriver(UnumIntermediaryDataStore):
 
 
     def _create_bitmap(self, bitmap_name, bitmap_size):
-        '''
+        '''Create a document with an array of booleans initialized to False
 
-        @param bitmap_name tuple
+        @param bitmap_name tuple containing the session ID and the document
+            name of the bitmap to be created
+        @param bitmap_size int the length of the boolean array
         '''
         collection = bitmap_name[0]
         document = bitmap_name[1]

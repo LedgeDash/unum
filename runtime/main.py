@@ -2,12 +2,11 @@ import json
 import os
 import time
 import sys
+if os.environ['FAAS_PLATFORM'] == 'gcloud':
+    import base64
 
 from unum import Unum
 from app import lambda_handler as user_lambda
-
-if os.environ['FAAS_PLATFORM'] == 'gcloud':
-    import base64
 
 '''Create the unum runtime context from this function's unum configuration and
 the workflow's intermediary data store information.
