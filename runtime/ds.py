@@ -149,7 +149,7 @@ class FirestoreDriver(UnumIntermediaryDataStore):
 
 
 
-    def gc_sync_ready(self, session, parent_function_instance_name, index, num_branches):
+    def gc_sync_ready(self, session, parent_function_instance_name, index, my_instance_name, num_branches):
         '''Mark my gc as ready and check if gc is ready to run
 
         In the case of a parent node invoking multiple downstream child nodes,
@@ -165,12 +165,11 @@ class FirestoreDriver(UnumIntermediaryDataStore):
 
         @return True is I'm the last-to-finish child node. False if I'm not.
         '''
-
         return self._sync_ready(self.gc_sync_point_name(session, parent_function_instance_name), index, num_branches)
 
 
 
-    def fanin_sync_ready(self, session, aggregation_function_instance_name, index, num_branches):
+    def fanin_sync_ready(self, session, aggregation_function_instance_name, index, my_instance_name, num_branches):
         '''Mark my branch as ready and check if fan-in is ready to run
 
         In the case of fan-in, all upstream branches need to have created
@@ -185,12 +184,11 @@ class FirestoreDriver(UnumIntermediaryDataStore):
 
         @return True is I'm the last-to-finish branch. False if I'm not.
         '''
-
-        return self._sync_ready(self.fanin_sync_point_name(session, aggregation_function_instance_name), index, num_branches)
-
+        return self._sync_ready(self.fanin_sync_point_name(session, aggregation_function_instance_name), index, my_instance_name, num_branches)
 
 
-    def _sync_ready(self, sync_point_name, index, num_branches):
+
+    def _sync_ready(self, sync_point_name, index, my_instance_name, num_branches):
         '''Mark the caller ready and return whether all branches are ready.
 
         @param sync_point_name tuple of session ID (as the Firestore
@@ -201,7 +199,71 @@ class FirestoreDriver(UnumIntermediaryDataStore):
 
         @return True if all branches are ready. False if not.
         '''
-        return self._sync_ready_bitmap(sync_point_name, index, num_branches)
+        # return self._sync_ready_bitmap(sync_point_name, index, num_branches)
+        return self._sync_ready_set(sync_point_name, my_instance_name, num_branches)
+
+
+
+    def _sync_ready_set(self, sync_point_name, my_instance_name, num_branches):
+        '''Synchronize using a set in Firestore
+
+        Based on
+        https://cloud.google.com/firestore/docs/manage-data/add-data#update_elements_in_an_array,
+        we can implement a Set using a Firestore array with the `arrayUnion()`
+        API.
+        '''
+        self._create_set(sync_point_name)
+        ready_set = self._update_set_result(sync_point_name, my_instance_name)
+
+        return self._set_ready(ready_set, num_branches)
+
+
+
+    def _create_set(self, set_name):
+        '''Create a document with an array field named "ReadySet" initialized
+        to an empty array
+
+        @param set_name tuple containing the session ID and the document
+            name of the set to be created
+        '''
+        collection = set_name[0]
+        document = set_name[1]
+
+        if self.debug:
+            print(f'[DEBUG] Creating ready set. Collection: {collection}. Document: {document}')
+
+        value = {'ReadySet':[]}
+
+        return self._create_if_not_exist(collection, document, value)
+
+
+
+    def _update_set_result(self, set_name, my_instance_name):
+        '''Add my instance name to the ready set
+        '''
+        collection = set_name[0]
+        document = set_name[1]
+
+        if self.debug:
+            print(f'[DEBUG] Adding {my_instance_name} to ready set ({collection}, {document})')
+
+        set_ref = self.db.collection(collection).document(document)
+
+        result = set_ref.update({'ReadySet': firestore.ArrayUnion([my_instance_name])})
+
+        if self.debug:
+            print(f'[DEBUG] Set result after update: {type(result)}')
+            print(f'{type(result.transform_results)}')
+            for e in result.transform_results:
+                print(e)
+                print(type(e))
+
+        return result
+
+
+
+    def _set_ready(self, ready_set, target_size):
+        return len(ready_set) == target_size
 
 
 
