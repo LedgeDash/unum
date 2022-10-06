@@ -18,19 +18,7 @@ There are two flavors of one-to-many transitions in Unum. The first flavor is si
 
 A many-to-one transition represents a fan-in where a single head node function is invoked with the outputs of multiple tail node functions. In Unum, the tail nodes' outputs are grouped into an ordered array and the head node function invoked with this array as its input. An important feature of many-to-one transitions is that the head node function is invoked only when all tail node functions' outputs become available. 
 
-In practice, 
-
-Continuations in unum are written statically using the [unum configuration language](#unum-configuration-language). Each function has an `unum-config.json` file in which it specifies
-
-1. Which unum function to invoke next
-2. What input to invoke it with
-3. Whether the result should be written into an intermediary data store
-
-
-
-
-
-# unum Configuration Language
+## The IR Language
 
 Each unum function has an unum configuration file (`unum-config.json`) that instructs the runtime what orchestration actions to take, that is whether it should invoke a function, which function(s) to invoke, and what input data to send.
 
