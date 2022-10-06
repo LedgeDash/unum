@@ -24,6 +24,20 @@ A many-to-one transition represents a fan-in where a single head node function i
 
 ## The IR Language
 
+In practice, each function in an Unum application has an IR file the encodes the function's node in the directed graph as well as the node's outgoing edges. The Unum IR language uses YAML and has the following fields to encode nodes and edges,
+
+```yaml
+Name: this function's name
+Start: boolean
+Checkpoint: boolean
+Next:
+    Type: Scalar | Map | Fan-in
+    Conditional:
+Fan-out Modifiers: array of modifier instructions
+```
+
+
+
 Each unum function has an unum configuration file (`unum-config.json`) that instructs the runtime what orchestration actions to take, that is whether it should invoke a function, which function(s) to invoke, and what input data to send.
 
 An unum configuration is a JSON file with the following fields:
