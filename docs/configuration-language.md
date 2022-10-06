@@ -1,6 +1,24 @@
-# unum Intermediary Representation
+# Unum Intermediate Representation
 
-The unum intermediary representation expresses FaaS workflows using [**continuations**](https://en.wikipedia.org/wiki/Continuation-passing_style). When an unum function has computed its result value, it returns by calling the continuation function with its result as the argument. The set of continuations from all functions forms the complete FaaS workflow.
+## Overview
+
+The Unum intermediate representation (IR) expresses serverless applications that consist of many FaaS functions. Applications are modeled as directed graphs where nodes are FaaS functions and edges are transitions between functions. The Unum IR expresses such a directed graph by encoding each node with its outgoing edges in a separate file. For example, an application that comprises of 5 functions would have 5 files in its Unum IR, one for each function that encodes the function's node in the direct graph as well as the node's outgoing edges.
+
+Application developers can write the Unum IR directly for each function to build application. Alternatively, they can provide a Step Functions definition to the Unum frontend compiler, and the compiler can translate the state machine into a set of Unum IR files, one for each function in the application.
+
+During execution, the [Unum runtime library](https://github.com/LedgeDash/unum-compiler/blob/main/docs/runtime.md) reads the Unum IR and performs orchestration operations based on the IR. Orchestration operations include invoking the next unum function with the current function's result, checkpointing the current function's output, signaling a branches completion by updating the Completion Set data structure, etc. For more details, see [the unum Runtime documentation](https://github.com/LedgeDash/unum-compiler/blob/main/docs/runtime.md).
+
+### Transitions
+
+Transitions between nodes in the Unum IR can be one-to-one, one-to-many or many-to-one. A one-to-one transition chains two functions together where the head node function is invoked when the tail node function's result becomes available. The input to the head node function is the output of the tail node function.
+
+A one-to-many transition represents a fan-out where the output of the tail node function is "broadcasted" to many "branches". The head node function of each branch is invoked when the tail node function's result becomes available.
+
+There are two flavors of one-to-many transitions in Unum. The first flavor is similar to AWS Step Functions' [Parallel state](https://docs.aws.amazon.com/step-functions/latest/dg/amazon-states-language-parallel-state.html) where the input to every branch's head node function is the output of the tail node function. In other words, every branch is invoked with the same input. This flavor of one-to-many transition is useful when you need to process the same data in different ways, where each branch has a different head node function and all branches can run in parallel. The other flavor of one-to-many transition is similar to AWS Step Functions' [Map state](https://docs.aws.amazon.com/step-functions/latest/dg/amazon-states-language-map-state.html) where the tail node function outputs an iterable (e.g., an array) and the input to each branch's head node function is one element of the iterable, in order. Thus, every branch is invoked with different input data. Moreover, each branch has the same head node function. In other words, you're applying the same computation on different data in parallel. This flavor of one-to-many transition is useful when you need to break up a large dataset into chunks and process each chunk in parallel.
+
+A many-to-one transition represents a fan-in where a single head node function is invoked with the outputs of multiple tail node functions. In Unum, the tail nodes' outputs are grouped into an ordered array and the head node function invoked with this array as its input. An important feature of many-to-one transitions is that the head node function is invoked only when all tail node functions' outputs become available. 
+
+In practice, 
 
 Continuations in unum are written statically using the [unum configuration language](#unum-configuration-language). Each function has an `unum-config.json` file in which it specifies
 
@@ -8,9 +26,8 @@ Continuations in unum are written statically using the [unum configuration langu
 2. What input to invoke it with
 3. Whether the result should be written into an intermediary data store
 
-The [unum runtime](https://github.com/LedgeDash/unum-compiler/blob/main/docs/runtime.md) is what actually executes the continuations written in `unum-config.json`. The execution invokes the next unum function with the current function's result value and optionally writes the value to the intermediary data store. For more details, see [the unum Runtime documentation](https://github.com/LedgeDash/unum-compiler/blob/main/docs/runtime.md).
 
-Application programmers can write continuations directly for each function to build workflows. Alternatively, they can provide a Step Functions definition to the [unum frontend compiler](https://github.com/LedgeDash/unum-compiler/blob/main/docs/frontend-compiler.md), and the compiler can translate the state machine into a set of `unum-config.json`, one for each function in the workflow. For more details, see [the unum frontend compiler documentation](https://github.com/LedgeDash/unum-compiler/blob/main/docs/frontend-compiler.md).
+
 
 
 # unum Configuration Language
@@ -21,7 +38,7 @@ An unum configuration is a JSON file with the following fields:
 
 ```
 {
-	"Name": "ThisFunctionName",
+    "Name": "ThisFunctionName",
     "Next":
         {
                 "Name": "FunctionName",
@@ -43,10 +60,10 @@ An unum configuration is a JSON file with the following fields:
             }
         ],
     "NextInput": 
-    	"Scalar" |
-    	"Map"    |
-    	{
-    		"Fan-in": {
+        "Scalar" |
+        "Map"    |
+        {
+            "Fan-in": {
                 "Values": [
                     "ExplicitPointerName",
                     "GlobPattern"
@@ -55,12 +72,12 @@ An unum configuration is a JSON file with the following fields:
             }
         },
     "Fan-out Modifiers" :
-    	[
-    		"Pop",
-    		"$size = $size - 1",
-    		"$0 = $0+1",
-    		...
-    	],
+        [
+            "Pop",
+            "$size = $size - 1",
+            "$0 = $0+1",
+            ...
+        ],
     "Checkpoint": True | False,
     "Start": True | False,
 }
@@ -117,15 +134,16 @@ The `Wait` field can be used in combination with the `Conditional` field to cont
 
 ```
 {
-	"Name": "FanoutFunction",
+    "Name": "FanoutFunction",
     "Next":
         {
                 "Name": "Fan-in Function",
                 "Conditional": "$0 == $size -1"
         },
-    "NextInput": 
-    	{
-    		"Fan-in": {
+
+"NextInput": 
+        {
+            "Fan-in": {
                 "Values": [
                     "FanoutFunction-unumIndex-*"
                 ],
@@ -224,8 +242,8 @@ the following unum configuration:
 
 ```json
 {
-	"NextInput":"Scalar",
-	"Next": ["Thumbnail", "FaceDetection"]
+    "NextInput":"Scalar",
+    "Next": ["Thumbnail", "FaceDetection"]
 }
 ```
 
@@ -299,9 +317,9 @@ in its `WaitFor` field. In the example above, function A would set
 
 ```json
 {
-	"Next": "E",
-	"NextInput": "Fan-in",
-	"WaitFor": ["B"]
+    "Next": "E",
+    "NextInput": "Fan-in",
+    "WaitFor": ["B"]
 }
 ```
 
@@ -309,9 +327,9 @@ And C would set
 
 ```json
 {
-	"Next": "F",
-	"NextInput": "Fan-in",
-	"WaitFor": ["D"]
+    "Next": "F",
+    "NextInput": "Fan-in",
+    "WaitFor": ["D"]
 }
 ```
 
@@ -329,9 +347,9 @@ fan-out, set the `WaitFor` field to `$MyIndex + 1`.
 
 ```json
 {
-	"Next": "I",
-	"NextInput": "Fan-in",
-	"WaitFor": ["$MyInput + 1"]
+    "Next": "I",
+    "NextInput": "Fan-in",
+    "WaitFor": ["$MyInput + 1"]
 }
 ​``` -->
 
