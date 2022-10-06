@@ -6,7 +6,7 @@ The Unum intermediate representation (IR) expresses serverless applications that
 
 Application developers can write the Unum IR directly for each function to build application. Alternatively, they can provide a Step Functions definition to the Unum frontend compiler, and the compiler can translate the state machine into a set of Unum IR files, one for each function in the application.
 
-During execution, the [Unum runtime library](https://github.com/LedgeDash/unum-compiler/blob/main/docs/runtime.md) reads the Unum IR and performs orchestration operations based on the IR. Orchestration operations include invoking the next unum function with the current function's result, checkpointing the current function's output, signaling a branches completion by updating the Completion Set data structure, etc. For more details, see [the unum Runtime documentation](https://github.com/LedgeDash/unum-compiler/blob/main/docs/runtime.md).
+During execution, the [Unum runtime library](https://github.com/LedgeDash/unum-compiler/blob/main/docs/runtime.md) reads the Unum IR and performs orchestration operations based on the IR. Orchestration operations include invoking the next unum function with the current function's result, checkpointing the current function's output, signaling a branches completion by updating the Completion Set data structure, etc. For more details, see documentation on [the Unum runtime](https://github.com/LedgeDash/unum-compiler/blob/main/docs/runtime.md).
 
 ### Transitions
 
