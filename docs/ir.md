@@ -10,6 +10,8 @@ During execution, the [Unum runtime library](https://github.com/LedgeDash/unum-c
 
 ### Transitions
 
+![ir-transitions](https://raw.githubusercontent.com/LedgeDash/unum/main/docs/assets/ir-transitions.jpg)
+
 Transitions between nodes in the Unum IR can be one-to-one, one-to-many or many-to-one. A one-to-one transition chains two functions together where the head node function is invoked when the tail node function's result becomes available. The input to the head node function is the output of the tail node function.
 
 A one-to-many transition represents a fan-out where the output of the tail node function is "broadcasted" to many "branches". The head node function of each branch is invoked when the tail node function's result becomes available.
