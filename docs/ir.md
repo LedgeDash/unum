@@ -29,20 +29,20 @@ In practice, each function itn an Unum application has an IR file that encodes t
 ```yaml
 Name: this function's name
 Next:
-    Name: Next/Head function name
+    Name: next/head function name
     Type: Scalar | Map | Fan-in
     Conditional: boolean expression
     Payload Modifiers: an array of modifier instructions
 Start: boolean
 Checkpoint: boolean
 ```
+By default, the Unum runtime expect this file to be named `unum_config.yaml` and each function of an Unum application should have its own `unum_config.yaml` that is package together with user-defined FaaS function code and the Unum runtime library. For more details, see documentation on [the Unum runtime](https://github.com/LedgeDash/unum-compiler/blob/main/docs/runtime.md).
 
+### Name
 
+The `Name` field specifies the function's name which can be any valid ASCII strings. Each function must have a name that's unique within its application. The application's name is specified in the Unum template and not in each function's `unum_config.yaml`. When deploying applications, Unum by default names the deployed FaaS function `<application name>-<function name>`. That is if you deploy your application on AWS, your Lambda functions will have names of `<application name>-<function name>`. See [Unum template documentation](https://github.com/LedgeDash/unum/blob/main/docs/template.md) and [Unum CLI documentation](https://github.com/LedgeDash/unum/blob/main/docs/cli.md) for more details.
 
-Each unum function has an unum configuration file (`unum-config.json`) that instructs the runtime what orchestration actions to take, that is whether it should invoke a function, which function(s) to invoke, and what input data to send.
-
-
-## Next
+### Next
 
 `Next` specifies the function or functions that should be invoked next with my
 user function's return value. It is either a single JSON object with a **Name** and a **Conditional** field or an array of such elements.
