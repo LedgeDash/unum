@@ -31,6 +31,7 @@ Name: this function's name
 Next:
     Name: next/head function name
     Type: Scalar | Map | Fan-in
+    Values: an array of invocation names (When Type: Fan-in)
     Conditional: boolean expression (Optional. Default None)
     Payload Modifiers: an array of modifier instructions (Optional. Default None)
 Start: boolean (Optional. Default False)
@@ -44,7 +45,7 @@ The `Name` field specifies the function's name which can be any valid ASCII stri
 
 ### Next
 
-The `Next` field specifies the outgoing edges. If there is only one outgoing edge (i.e., a chain or a one-to-one transition), the `Next` field contains only a single element. For example,
+The `Next` field specifies the outgoing edges. If there is only one outgoing edge (i.e., a chain or a one-to-one transition), the `Next` field contains only a single object. For example,
 
 ```yaml
 Name: A
@@ -55,7 +56,7 @@ Start: True
 Checkpoint: True
 ```
 
-If there are multiple outgoing edges (i.e., a fan-out or one-to-many transition), the `Next` field specifies an array. For example,
+If there are multiple outgoing edges (i.e., a fan-out or one-to-many transition), the `Next` field specifies an array of objects. For example,
 
 ```yaml
 Name: A
@@ -68,21 +69,19 @@ Start: True
 Checkpoint: True
 ```
 
-`Next` specifies the function or functions that should be invoked next with my
-user function's return value. It is either a single JSON object with a **Name** and a **Conditional** field or an array of such elements.
+The object that encodes an outgoing edge has up to five fields:
 
-The **Name** field is the next function's name. It should match one of the names from the `unum-template.yaml` (See [unum Template Documentation](https://github.com/LedgeDash/unum-compiler/blob/main/docs/template.md) for more details).
+**Name**: the function name of the head node function of this outgoing edge
 
-The **Conditional** field is a boolean expression. A next function will be invoked only if its Conditional field evaluate to true.
+**Type**: specifies the type of this transition. The standard IR supports 3 different values for `Type`:
 
-[unum rumtime variables](https://github.com/LedgeDash/unum-compiler/blob/main/docs/runtime.md#runtime-variables) can be used in the Conditional expression. For instance, we can make the last fan-out function to be the only one that performs a fan-in by setting:
+- `Scalar`: The output of the tail node is treated as a single scalar entity when passed as input to the tail node function of this edge.
+- `Map`: The output of the tail node is treated as a iterable, and each element of the output is passed to one invocation of the tail node function as input. That is the tail node function is invoked x number of times where x equals the size of the iterable output of the tail node.
+- `Fan-in`: The output of the tail node is grouped together with the outputs from other functions and passed as input to the tail node function of this edge in the form of an ordered array. All values needed to invoke the head node function is specified in the additional `Values` field which is only used when `Type: Fan-in`.
 
-```
-{
-    "Name": "NextFunction",
-    "Conditional": "$0 == $size-1"
-}
-```
+The following examples illustrate how Unum uses these 3 `Type` values to support a variety of transitions.
+
+
 
 
 
