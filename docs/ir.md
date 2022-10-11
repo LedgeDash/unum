@@ -32,7 +32,7 @@ Next:
     Name: next/head function name
     Type: Scalar | Map | Fan-in
     Values: an array of invocation names (When Type: Fan-in)
-    Conditional: boolean expression (Optional. Default None)
+    Conditional: boolean expression (Optional. Default True)
     Payload Modifiers: an array of modifier instructions (Optional. Default None)
 Start: boolean (Optional. Default False)
 Checkpoint: boolean (Optional. Default True)
@@ -71,15 +71,16 @@ Checkpoint: True
 
 The object that encodes an outgoing edge has up to five fields:
 
-**Name**: the function name of the head node function of this outgoing edge
+* `**Name**`: the function name of the head node function of this outgoing edge
+* `**Type**`: specifies the type of this transition. The standard IR supports 3 different values for `Type`:
+   - `Scalar`: The output of the tail node is treated as a single scalar entity when passed as input to the tail node function of this edge.
+   - `Map`: The output of the tail node is treated as a iterable, and each element of the output is passed to one invocation of the tail node function as input. That is the tail node function is invoked x number of times where x equals the size of the iterable output of the tail node.
+   - `Fan-in`: The output of the tail node is grouped together with the outputs from other functions and passed as input to the tail node function of this edge in the form of an ordered array. All values needed to invoke the head node function is specified in the additional `Values` field which is only used when `Type: Fan-in`.
+* `**Values**`: Only used when `Type` is `Fan-in`. `Values` lists, *in order*, the invocation names of all tail node functions whose outputs are needed to invoked the head node.
+* `**Conditional**`: A boolean expression that controls whether or not this edge is taken at runtime. The boolean expression can contain runtime variables such as the invocation name. An edge is executed, i.e., the head node function is invoked, only when its `Conditional` evaluates to true. By default, such as when `Conditional` is not even specified, `Conditional` is set to true.
+* `**Payload Modifiers**`: A list of modifier instructions that can change the value of runtime variables and states of the execution. See below for more details.
 
-**Type**: specifies the type of this transition. The standard IR supports 3 different values for `Type`:
-
-- `Scalar`: The output of the tail node is treated as a single scalar entity when passed as input to the tail node function of this edge.
-- `Map`: The output of the tail node is treated as a iterable, and each element of the output is passed to one invocation of the tail node function as input. That is the tail node function is invoked x number of times where x equals the size of the iterable output of the tail node.
-- `Fan-in`: The output of the tail node is grouped together with the outputs from other functions and passed as input to the tail node function of this edge in the form of an ordered array. All values needed to invoke the head node function is specified in the additional `Values` field which is only used when `Type: Fan-in`.
-
-The following examples illustrate how Unum uses these 3 `Type` values to support a variety of transitions.
+The following examples illustrate how Unum uses the above object to encode and support a variety of transitions.
 
 
 
