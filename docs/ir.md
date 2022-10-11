@@ -4,7 +4,7 @@
 
 The Unum intermediate representation (IR) expresses serverless applications that consist of many FaaS functions. Applications are modeled as directed graphs where nodes are FaaS functions and edges are transitions between functions. The Unum IR expresses such a directed graph by encoding each node with its outgoing edges in a separate file. For example, an application that comprises of 5 functions would have 5 files in its Unum IR, one for each function that encodes the function's node in the direct graph as well as the node's outgoing edges.
 
-Application developers can write the Unum IR directly for each function to build application. Alternatively, they can provide a Step Functions definition to the Unum frontend compiler, and the compiler can translate the state machine into a set of Unum IR files, one for each function in the application.
+Application developers can write the Unum IR directly for each function to build applications. Alternatively, they can provide an AWS Step Functions definition to the Unum frontend compiler, and the compiler can translate the state machine into a set of Unum IR files, one for each function in the application.
 
 During execution, the [Unum runtime library](https://github.com/LedgeDash/unum-compiler/blob/main/docs/runtime.md) reads the Unum IR and performs orchestration operations based on the IR. Orchestration operations include invoking the next unum function with the current function's result, checkpointing the current function's output, signaling a branches completion by updating the Completion Set data structure, etc. For more details, see documentation on [the Unum runtime](https://github.com/LedgeDash/unum-compiler/blob/main/docs/runtime.md).
 
@@ -20,74 +20,27 @@ A one-to-many transition represents a fan-out where the output of the tail node 
 
 There are two flavors of one-to-many transitions in Unum. The first flavor is similar to AWS Step Functions' [Parallel state](https://docs.aws.amazon.com/step-functions/latest/dg/amazon-states-language-parallel-state.html) where the input to every branch's head node function is the output of the tail node function. In other words, every branch is invoked with the same input. This flavor of one-to-many transition is useful when you need to process the same data in different ways, where each branch has a different head node function and all branches can run in parallel. The other flavor of one-to-many transition is similar to AWS Step Functions' [Map state](https://docs.aws.amazon.com/step-functions/latest/dg/amazon-states-language-map-state.html) where the tail node function outputs an iterable (e.g., an array) and the input to each branch's head node function is one element of the iterable, in order. Thus, every branch is invoked with different input data. Moreover, each branch has the same head node function. In other words, you're applying the same computation on different data in parallel. This flavor of one-to-many transition is useful when you need to break up a large dataset into chunks and process each chunk in parallel.
 
-A many-to-one transition represents a fan-in where a single head node function is invoked with the outputs of multiple tail node functions. In Unum, the tail nodes' outputs are grouped into an ordered array and the head node function invoked with this array as its input. An important feature of many-to-one transitions is that the head node function is invoked only when all tail node functions' outputs become available. 
+A many-to-one transition represents a fan-in where a single head node function is invoked with the outputs of multiple tail node functions. In Unum, the tail nodes' outputs are grouped into an ordered array and the head node function is invoked with this array as its input. An important feature of many-to-one transitions is that the head node function is invoked only when all tail node functions' outputs become available. 
 
 ## The IR Language
 
-In practice, each function in an Unum application has an IR file the encodes the function's node in the directed graph as well as the node's outgoing edges. The Unum IR language uses YAML and has the following fields to encode nodes and edges,
+In practice, each function itn an Unum application has an IR file that encodes the function's node in the directed graph as well as the node's outgoing edges. The Unum IR language uses YAML and has the following fields to encode nodes and edges,
 
 ```yaml
 Name: this function's name
+Next:
+    Name: Next/Head function name
+    Type: Scalar | Map | Fan-in
+    Conditional: boolean expression
+    Payload Modifiers: an array of modifier instructions
 Start: boolean
 Checkpoint: boolean
-Next:
-    Type: Scalar | Map | Fan-in
-    Conditional:
-Fan-out Modifiers: array of modifier instructions
 ```
 
 
 
 Each unum function has an unum configuration file (`unum-config.json`) that instructs the runtime what orchestration actions to take, that is whether it should invoke a function, which function(s) to invoke, and what input data to send.
 
-An unum configuration is a JSON file with the following fields:
-
-```
-{
-    "Name": "ThisFunctionName",
-    "Next":
-        {
-                "Name": "FunctionName",
-                "Conditional": "BooleanExpression"
-        }, |
-        [
-            {
-                "Name": "FunctionA",
-                "Conditional": "BooleanExpressionA"
-            },
-            {
-                "Name": "FunctionNameB",
-                "Conditional": "BooleanExpressionB"
-            },
-            ...
-            {
-                "Name": "FunctionNameN",
-                "Conditional": "BooleanExpressionN"
-            }
-        ],
-    "NextInput": 
-        "Scalar" |
-        "Map"    |
-        {
-            "Fan-in": {
-                "Values": [
-                    "ExplicitPointerName",
-                    "GlobPattern"
-                ],
-            "Wait": true | false
-            }
-        },
-    "Fan-out Modifiers" :
-        [
-            "Pop",
-            "$size = $size - 1",
-            "$0 = $0+1",
-            ...
-        ],
-    "Checkpoint": True | False,
-    "Start": True | False,
-}
-```
 
 ## Next
 
