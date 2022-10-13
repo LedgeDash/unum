@@ -8,6 +8,14 @@ Application developers can write the Unum IR directly for each function to build
 
 During execution, the [Unum runtime library](https://github.com/LedgeDash/unum-compiler/blob/main/docs/runtime.md) reads the Unum IR and performs orchestration operations based on the IR. Orchestration operations include invoking the next unum function with the current function's result, checkpointing the current function's output, signaling a branches completion by updating the Completion Set data structure, etc. For more details, see documentation on [the Unum runtime](https://github.com/LedgeDash/unum-compiler/blob/main/docs/runtime.md).
 
+### A Note on Implementation and Customization
+
+An important point of Unum is to demonstrate what you can achieve on the application-level for orchestrating serverless applications. The general idea of the Unum IR is to use a platform-agnostic representation that encodes serverless applications as directed graphs. Moreover, the representation encodes in a decentralized manner where each node is encoded along with its outgoing edges. Such a design not only allows Unum to support existing higher-level programming interfaces such as AWS Step Functions, but also enables orchestration to execute with a logically-centralized controller.
+
+Therefore, it is worth noting that the implementation of Unum IR described in this document is one possible implementation of the general idea. This implementation may not be the best or richest realization of the idea, but the point is that developers, without the help or control of cloud providers, can create other implementations of this idea to build and run complex serverless applications.
+
+The goal of this document is to demonstrate this implmetation and show how one would create an IR that is capable of support a superset of applications possible with AWS Step Functions. We hope this work will inspire developers to create other custom-made IRs that are optimized for their applications' use cases.
+
 ### Transitions
 
 <p align="center">
@@ -251,26 +259,33 @@ The `Pop` instruction would remove the `Fan-out` field from the input payload wh
 
 `Pop` is useful when you have nested fan-outs and maps.
 
-### Fan-out Modifiers
+### Unum Runtime Variables
 
-The `Fan-out Modifiers` is an ordered list of operators that can modify the `Fan-out` field in the input JSON during runtime. It controls the `Fan-out` field content of the *output*, i.e., the input to the next function.
+Many complex interactions require additional control over the runtime metadata. To provide the necessary programmability, Unum IR supports a set of runtime variables. Through the runtime variables, developers can read and write runtime metadata. To learn more about the runtime metadata supported in the Unum standard library, please see the [Unum runtime documtation](https://github.com/LedgeDash/unum/blob/main/docs/runtime.md).
 
-`Pop`: The `Fan-out` field forms a stack structure, with the earliest `Fan-out` in the bottom `Outerloop` field (see the [unum Runtime Documentation](https://github.com/LedgeDash/unum-compiler/blob/main/docs/runtime.md) for [examples](https://github.com/LedgeDash/unum-compiler/blob/main/docs/runtime.md#nested-parallel--map-fan-out--fan-in)). The `Pop` operator removes the top element from the `Fan-out` stack. If there's only one element in the stack, the `Fan-out` field is removed.
+Unum runtime variables can appear in `Conditional` as part of the boolean expression, in `Values` as part of the invocation names, or in `Payload Modifiers` as part of the modifier instructions. The following is a list of Unum variables currently supported in the standard library and their example use cases:
 
-`$size`: fan-out modifiers support unum variables. `$size` is an unum variable that refers to the `Size` field of the top element in the `Fan-out` stack.
+- `$out` refers to the output of the function.
+   * You can branch on the function output by using `$out` in the `Conditional` field of the IR as shown in the branching example previously
+   * You can manually set the output of a function by writing to `$out` in the `Payload Modifier`, for example `$out="Hello World"`
+- `$n` where n is a non-negative integer refers to the branch index of the nth fan-out. For instance, `$0` is the index of the most recent fan-out (i.e., the inner-most loop), `$1` is the index of the 1st outer loop, so on and so forth.
+   * You can control which branch in a Map moves forward to execute the edge and invoke the head node. For example, to only have branches with even indexes (or every other branch) invokes the head node, use `Conditional: "$0 % 2 == 0`.
+   * You can have each branch fan-in with its next branch by specifying the `Values` as `[A-UnumIndex-$0, A-UnumIndex-($0+1)]` and setting the `Conditional` as `$0<$size-1` so that the last branch do not try to fan-in with its next branch which does not exist and whose index is out of bound.
+   * You can modify the index in the `Payload Modifier`, for example `$0=0`, or `$0=$0+1"`.
+- `$size` refers to the number of branches in the most recent fan-out (Unum supports nested fan-outs. The most recent fan-out is the inner-most loop).
+   * We've seen an example of using `$size` in the `Conditional: $0<$size-1` to prevent the last branch from fan-in with a non-existent branch.
+   * You can modify the size in the `Payload Modifier`, for example `$size=3`, or `$size=$size-1"`.
 
-The ability to modify the `Size` field helps support applications that use partial fan-in across parallel pipelines. For [example](https://github.com/LedgeDash/unum-compiler/blob/main/docs/runtime.md#partial-fan-in-pipeline-parallelism).
+### Payload Modifiers
 
-`$N`: `$N` is another set of unum variables that refers to the current function's fan-out index at depth N. For instance, `$0` is the `Index` field of the top element in the `Fan-out` stack.
+`Pop` is the only modifier currently supported in the standard library. It is designed to support nested fan-out and fan-in by removing the outer-most `Fan-out` object in the payload metadata.
 
-Being able to update the fan-out index enables fold operations on a set of fan-out functions. For [example](https://github.com/LedgeDash/unum-compiler/blob/main/docs/runtime.md#fan-out-and-fold).
+Users can add any payload modifier instructions they deem necessary. Unum's design allows developers to fully custom the orchestration logic.
 
-## Additional Examples
+<!-- ## Additional Examples
 
 ### Nested Fan-out and Fan-in
 
 ### Pipeline Parallelism/Partial Fan-ins
 
-
-
-
+ -->
