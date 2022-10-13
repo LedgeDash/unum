@@ -153,7 +153,7 @@ Similar to the Map case, each branch of a fan-out is assigned a unique branch in
 
 #### Fan-in
 
-To fan-in the outputs of multiple tail nodes into a single head node, both tail nodes need to use the edge object with `Fan-in` type. For example, if A and B fan-in to C, A and B would have IR that looks like,
+To fan-in the outputs of multiple tail nodes into a single head node, all tail nodes need to use the `Fan-in` type when specifying their outgoing edges. For example, if A and B fan-in to C, A and B would have IR that looks like,
 
 ```yaml
 Name: A
@@ -204,7 +204,9 @@ Next:
   Values: ["A-UnumIndex-0", "B-UnumIndex-1"]
 ```
 
-*The index is known a priori at compile time* because the directed graph that the IR express is static. For dynamic patterns such as Map, Unum supports wildcard characters and globbing in the IR which expands at runtime. For instance, if S maps to many branches of A and the A's fan-in to B, A's IR would look like,
+*The index is known a priori at compile time* because the directed graph that the IR expresses is static.
+
+For dynamic patterns such as Map, Unum supports wildcard characters and globbing in the IR which expands at runtime. For instance, if S maps to many branches of A and the A's fan-in to B, A's IR would look like,
 
 ```yaml
 Name: A
@@ -214,21 +216,21 @@ Next:
   Values: ["A-UnumIndex-*"]
 ```
 
-If S' output list has size 3, there will be 3 A invocations and `[A-UnumIndex-*]` would expand to `[A-UnumIndex-0, A-UnumIndex-1, A-UnumIndex-2]` at runtime. The globbing process uses Unum's payload metadata at runtime.
-
-
-See the [Unum runtime documtation](https://github.com/LedgeDash/unum/blob/main/docs/runtime.md) for details.
-
-Additionally, you might want to further manipulate the payload metadata to indicate that the fan-out has ended and clear the metadata to be,
+If S' output list has size 3, there will be 3 A invocations and `[A-UnumIndex-*]` would expand to `[A-UnumIndex-0, A-UnumIndex-1, A-UnumIndex-2]` at runtime. The globbing process uses Unum's payload metadata at runtime. Specifically, in this example, the runtime library would perform globbing using the `Fan-out` field in the input payload to the A invocations. Each A invocation would receive an input that looks like,
 
 ```json
 {
-    "session": "deadbeef",
+    "Session": "8cef2097-f6fa-4fa2-bc70-7aa7bbbc23d9",
+    "Fan-out": {
+        "Size": 3,
+        "Index": 0
+    }
 }
 ```
 
-To do this, Unum supports payload modifiers which are instructions that modifies the payload metadata. For instance, to remove a fan-out field from the payload, the standard library supports a `Pop` instruction. To use the `Pop` instruction, A's IR would look like,
+The `Fan-out` field is added by S when invoking the A functions. The runtime on A would expand `A-UnumIndex-*` using the `Size` field knowing that there are in total 3 A invocations. See the [Unum runtime documtation](https://github.com/LedgeDash/unum/blob/main/docs/runtime.md) for details on how the runtime interprets and executes the IR.
 
+Additionally, Unum supports payload modifiers which are instructions that modifies the payload metadata. They enable further manipulating the payload metadata. For instance, to remove a fan-out field from the payload, the standard library supports a `Pop` instruction. To use the `Pop` instruction, A's IR would look like,
 
 ```yaml
 Name: A
@@ -238,6 +240,16 @@ Next:
   Values: ["A-UnumIndex-*"]
   Payload Modifiers: ["Pop"]
 ```
+
+The `Pop` instruction would remove the `Fan-out` field from the input payload when A's fan-in to B such that B's input would look something like the following without a `Fan-out` field,
+
+```json
+{
+    "Session": "8cef2097-f6fa-4fa2-bc70-7aa7bbbc23d9"
+}
+```
+
+`Pop` is useful when you have nested fan-outs and maps.
 
 ## NextInput
 
