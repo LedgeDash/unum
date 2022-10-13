@@ -1,9 +1,35 @@
-# unum Input Format
+# Unum Runtime
 
-Every unum function is invoked with a JSON input of the following structure. The input contains two types of information
+## Input Payload Format
 
-1. The data for the user function
-2. unum runtime metadata
+Every unum function is invoked with a JSON input of the following structure.
+
+```json
+{
+    "Data": {
+        "Source": "http | dynamodb ",
+        "Value": "data value as a JSON object | [data store pointers]"
+    },
+    "Session": "uuid4 string",
+    "Fan-out": {
+        "Index": 1,
+        "Size": 3,
+        "OuterLoop": {
+            "Index": 2,
+            "Size": 5,
+	    "OuterLoop": {
+	        "Index": 0,
+		"Size": 3
+	    }
+        }
+    }
+}
+```
+
+The input contains two types of information
+
+1. Input data for the user-defined function
+2. Unum runtime metadata
 
 The main purpose of the runtime metadata is to generate a unique name for each function invocation in the workflow. There are two types of metadata used to name a function invocation
 
@@ -14,28 +40,6 @@ A session ID is created for each workflow invocation and shared by all function 
 
 A fan-out index is assigned to each fan-out function. When a function is not part of a fan-out, its input JSON does not contain this field. A fan-out index helps distinguish runtime function instances, especially when there are multiple running instances of the same function.
 
-```json
-{
-    "Data": {
-        "Source": "http | s3 ",
-        "Value": "data value as a JSON object | [data store pointers]"
-    },
-    "Session": "an ID passed to the intermediary data store",
-	"Fan-out": {
-        "Type": "Map | Parallel",
-        "Index": 1,
-        "Size": 3,
-        "OuterLoop": {
-            "Type": "Map | Parallel",
-            "Index": 2,
-            "Size": 5
-        }
-    },
-	"Modifiers" : {
-        "Invoke": "One-off | One-off-client | Downstream",
-    }
-}
-```
 
 
 
