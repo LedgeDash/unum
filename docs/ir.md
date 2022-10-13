@@ -43,6 +43,14 @@ By default, the Unum runtime expect this file to be named `unum_config.yaml` and
 
 The `Name` field specifies the function's name which can be any valid ASCII strings. Each function must have a name that's unique within its application. The application's name is specified in the Unum template and not in each function's `unum_config.yaml`. When deploying applications, Unum by default names the deployed FaaS function `<application name>-<function name>`. That is if you deploy your application on AWS, your Lambda functions will have names of `<application name>-<function name>`. See [Unum template documentation](https://github.com/LedgeDash/unum/blob/main/docs/template.md) and [Unum CLI documentation](https://github.com/LedgeDash/unum/blob/main/docs/cli.md) for more details.
 
+### Start
+
+`Start` is set to True for entry functions of applications. Users invoke an application by invoking its entry function. At runtime, the Unum library checks if `Start` is true, and if yes, adds a `Session` field to the runtime payload that uniquely identifies each application invocation. See the [Unum runtime documtation](https://github.com/LedgeDash/unum/blob/main/docs/runtime.md) for details.
+
+### Checkpoint
+
+`Checkpoint` is a boolean field that controls whether a node's output is checkpointed into the data store. Checkpoints directly affect the execution guarantees of applications. When `Checkpoint` is set to false, application are executed at-least once; whereas when `Checkpoint` is true, applications are executed exactly-once.
+
 ### Next
 
 The `Next` field specifies the outgoing edges. If there is only one outgoing edge (i.e., a chain or a one-to-one transition), the `Next` field contains only a single object. For example,
@@ -82,9 +90,154 @@ The object that encodes an outgoing edge has up to five fields:
 
 The following examples illustrate how Unum uses the above object to encode and support a variety of transitions.
 
+#### Chaining
+
+To chain a B function to an A function, A's IR would look like,
+
+```yaml
+Name: A
+Next:
+  Name: B
+  Type: Scalar
+Start: True
+```
+
+#### Branching
+
+To branch on A's result and invoke B if the result is above some threshold (e.g., 50) or otherwise invoke C, A's IR would look like,
+
+```yaml
+Name: A
+Next:
+  - Name: B
+    Type: Scalar
+    Conditional: "$out > 50"
+  - Name: C
+    Type: Scalar
+    Conditional: "$out <= 50"
+Start: True
+```
+
+`Conditional` is the field that specifies the branching logic. `$out` is a Unum runtime variable that refers to the output of the function.
+
+#### Map
+
+If A outputs a list and wants to further process each element of the list with B, A's IR would look like,
+
+```yaml
+Name: A
+Next:
+  Name: B
+  Type: Map
+Start: True
+```
+
+The number of B invocations would equal to the size of A's output list. Moreover, each B invocation would be assigned a unique index at runtime to distinguish the B function invocations that are on different branches. For instance, the B invocation that processes the 1st element in A's output list would be assigned a branch index of 0. In general, it's important that every function invocation can be uniquely identified, and assigning branches unique indexes is one mechanism that Unum employs to guarantee unique naming. See the [Unum runtime documtation](https://github.com/LedgeDash/unum/blob/main/docs/runtime.md) for details.
+
+#### Fan-out
+
+To fan-out A's output as a single scalar entity to multiple head node functions, A's IR would look like,
+
+```yaml
+Name: A
+Next:
+  - Name: B
+    Type: Scalar
+  - Name: C
+    Type: Scalar
+Start: True
+Checkpoint: True
+```
+
+Similar to the Map case, each branch of a fan-out is assigned a unique branch index at runtime based on the order a branch appears in the `Next` field. For instance, function B in this case would be assigned index 0 and C index 1. Even though branches in fan-out have head node functions of different names, assigning branch index help distinguish invocations at runtime when fan-outs are nested. See the [Unum runtime documtation](https://github.com/LedgeDash/unum/blob/main/docs/runtime.md) for details.
+
+#### Fan-in
+
+To fan-in the outputs of multiple tail nodes into a single head node, both tail nodes need to use the edge object with `Fan-in` type. For example, if A and B fan-in to C, A and B would have IR that looks like,
+
+```yaml
+Name: A
+Next:
+  Name: C
+  Type: Fan-in
+  Values: [A, B]
+```
+
+```yaml
+Name: B
+Next:
+  Name: C
+  Type: Fan-in
+  Values: [A, B]
+```
+
+Both A and B would specify C as the next node and the `Values` field lists the names of *invocations* whose outputs are required before the fan-in head node---C in this case---can be invoked. Note that the `Values` field must list the names in the same order in all tail node functions' IR, because the tail nodes' outputs are passed to the head node function in the order specified in the `Values` field.
+
+Most likely, A and B are first created as branches of a fan-out. For instance, an S function first fan-out to A and B,
+
+```yaml
+Name: S
+Next:
+  - Name: A
+    Type: Scalar
+  - Name: B
+    Type: Scalar
+Start: True
+Checkpoint: True
+```
+
+In this case, the A and B invocations will have branch indexes 0 and 1. For A and B to fan-in to C, the names in `Values` should include the branch index. For instance, the default runtime library expects branch indexes to appear after a `-UnumIndex-` string,
+
+```yaml
+Name: A
+Next:
+  Name: C
+  Type: Fan-in
+  Values: ["A-UnumIndex-0", "B-UnumIndex-1"]
+```
+
+```yaml
+Name: B
+Next:
+  Name: C
+  Type: Fan-in
+  Values: ["A-UnumIndex-0", "B-UnumIndex-1"]
+```
+
+*The index is known a priori at compile time* because the directed graph that the IR express is static. For dynamic patterns such as Map, Unum supports wildcard characters and globbing in the IR which expands at runtime. For instance, if S maps to many branches of A and the A's fan-in to B, A's IR would look like,
+
+```yaml
+Name: A
+Next:
+  Name: B
+  Type: Fan-in
+  Values: ["A-UnumIndex-*"]
+```
+
+If S' output list has size 3, there will be 3 A invocations and `[A-UnumIndex-*]` would expand to `[A-UnumIndex-0, A-UnumIndex-1, A-UnumIndex-2]` at runtime. The globbing process uses Unum's payload metadata at runtime.
 
 
+See the [Unum runtime documtation](https://github.com/LedgeDash/unum/blob/main/docs/runtime.md) for details.
 
+Additionally, you might want to further manipulate the payload metadata to indicate that the fan-out has ended and clear the metadata to be,
+
+```json
+{
+    "session": "deadbeef",
+}
+```
+
+To do this, Unum supports payload modifiers which are instructions that modifies the payload metadata. For instance, to remove a fan-out field from the payload, the standard library supports a `Pop` instruction. To use the `Pop` instruction, A's IR would look like,
+
+
+```yaml
+Name: A
+Next:
+  Name: B
+  Type: Fan-in
+  Values: ["A-UnumIndex-*"]
+  Payload Modifiers: ["Pop"]
+```
 
 ## NextInput
 
