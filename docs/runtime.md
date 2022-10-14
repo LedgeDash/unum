@@ -7,7 +7,7 @@ Every unum function is invoked with a JSON input of the following structure.
 ```json
 {
     "Data": {
-        "Source": "http | dynamodb ",
+        "Source": "http | dynamodb",
         "Value": "data value as a JSON object | [data store pointers]"
     },
     "Session": "uuid4 string",
@@ -31,17 +31,9 @@ The input contains two types of information
 1. Input data for the user-defined function
 2. Unum runtime metadata
 
-The main purpose of the runtime metadata is to generate a unique name for each function invocation in the workflow. There are two types of metadata used to name a function invocation
+The `Data` field contains the input data to the user-defined function. Data is either passed directly in the payload or passed by reference as pointers to an intermediate data store. The current implementation supports DynamoDB as the intermediate data store. However, users can extend the runtime library to support other data stores that better suits their applications' needs. 
 
-1. Session ID
-2. Fan-out index
-
-A session ID is created for each workflow invocation and shared by all function invocations in the workflow. It directly maps to a unique section of the intermediary data store where all function instances of the workflow invocation write their results. Depending on the type of the data store, the section may be a s3 prefix, a Dynamodb item or a Redis hash.
-
-A fan-out index is assigned to each fan-out function. When a function is not part of a fan-out, its input JSON does not contain this field. A fan-out index helps distinguish runtime function instances, especially when there are multiple running instances of the same function.
-
-
-
+The rest of the fields are Unum's runtime metadata. The main purpose of the runtime metadata is to uniquely identify each function invocation. Unum names each invocation using a combination of the function name, session ID and fan-out indexes.
 
 ## Data
 
@@ -101,9 +93,15 @@ The session value is *only used for writing functions' return value to the unum 
 
 The session value is abstract from the unum runtime's perspective. The unum runtime pass the content of this field to the data store library on writes.
 
+A session ID is created for each workflow invocation and shared by all function invocations in the workflow. It directly maps to a unique section of the intermediary data store where all function instances of the workflow invocation write their results. Depending on the type of the data store, the section may be a s3 prefix, a Dynamodb item or a Redis hash.
+
+
 
 
 ## Fan-out
+
+
+A fan-out index is assigned to each fan-out function. When a function is not part of a fan-out, its input JSON does not contain this field. A fan-out index helps distinguish runtime function instances, especially when there are multiple running instances of the same function.
 
 **[OPTIONAL]**
 
