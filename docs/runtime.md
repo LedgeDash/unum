@@ -1,5 +1,7 @@
 # Unum Runtime
 
+
+
 ## Input Payload Format
 
 Every unum function is invoked with a JSON input of the following structure.
@@ -31,11 +33,16 @@ The input contains two types of information
 1. Input data for the user-defined function
 2. Unum runtime metadata
 
-The `Data` field contains the input data to the user-defined function. Data is either passed directly in the payload or passed by reference as pointers to an intermediate data store. The current implementation supports DynamoDB as the intermediate data store. However, users can extend the runtime library to support other data stores that better suits their applications' needs. 
+The `Data` field contains the input data to the user-defined function. Data is either passed directly in the payload or passed by reference as pointers to an intermediate data store. The current implementation supports DynamoDB as the intermediate data store. However, users can extend the runtime library to support other data stores that better suits their applications' needs. For instance, applications that process large binary data might benefit from using object stores.
 
-The rest of the fields are Unum's runtime metadata. The main purpose of the runtime metadata is to uniquely identify each function invocation. Unum names each invocation using a combination of the function name, session ID and fan-out indexes.
+The rest of the fields are Unum's runtime metadata. The main purpose of the runtime metadata is to uniquely identify each function invocation. Unum names each invocation using a combination of the function name, session ID and fan-out indexes. Details are discussed below.
 
-## Data
+### Naming
+
+
+### Fields
+
+#### Data
 
 **[REQUIRED]**
 
