@@ -82,7 +82,7 @@ Checkpoints names are prefixed by the session ID, for example `743d9ef6-5e89-4d1
 
 `Fan-out` is a recursive field where outer loops are nested inside `OuterLoop`. Every time a fan-out happens, the existing `Fan-out` field from the input is moved to a nested `OuterLoop` field.  Each "loop" specifies an `Index` which the branch index of this function and `Size` which is the total number of branches in the fan-out.
 
-The [`Pop` modifier]([Every time a fan-out happens, the existing `Fan-out` field from the input is moved to a nested `OuterLoop` field. ](https://github.com/LedgeDash/unum/blob/main/docs/ir.md#payload-modifiers)) removes the most recent loop and makes the first `OuterLoop` the `Fan-out` field in the input payload.
+The [`Pop` modifier](https://github.com/LedgeDash/unum/blob/main/docs/ir.md#payload-modifiers) removes the most recent loop and makes the first `OuterLoop` the `Fan-out` field in the input payload.
 
 - `Index`:
    * For Map fan-out, each function instance is assigned an index that is the same as its input's index in the array.
